@@ -1,0 +1,8 @@
+aiogram>=3.10
+aiosqlite>=0.20
+aiohttp>=3.9
+
+[dev]
+pytest
+pytest-asyncio
+pytest-mock

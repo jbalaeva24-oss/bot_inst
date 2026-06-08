@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: funnel-bot
+Version: 0.2.0
+Requires-Python: >=3.11
+Requires-Dist: aiogram>=3.10
+Requires-Dist: aiosqlite>=0.20
+Requires-Dist: aiohttp>=3.9
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: pytest-mock; extra == "dev"

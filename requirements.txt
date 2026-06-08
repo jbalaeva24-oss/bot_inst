@@ -1,0 +1,6 @@
+aiogram>=3.10
+aiosqlite>=0.20
+aiohttp>=3.9
+openpyxl>=3.1
+python-dotenv>=1.0
+fpdf2>=2.7
