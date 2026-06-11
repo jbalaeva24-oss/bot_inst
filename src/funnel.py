@@ -8,7 +8,7 @@
 """
 import logging
 from pathlib import Path
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, FSInputFile
@@ -378,14 +378,14 @@ async def q_timeline(cb: CallbackQuery, state: FSMContext):
 # ── БЛОК 5: РАБОТА С ВОЗРАЖЕНИЯМИ ────────────────────────────────────────────
 
 @router.callback_query(Funnel.offer_reaction, F.data == "offer:yes")
-async def offer_yes(cb: CallbackQuery, state: FSMContext):
+async def offer_yes(cb: CallbackQuery, state: FSMContext, bot: Bot):
     await cb.answer()
     await cancel_followup(cb.from_user.id)
     await edit_or_answer(cb,
         "🎉 Отлично! Рад работать с вами.\n\n"
         "Запишемся на короткий созвон — обсудим детали и стартуем 🚀"
     )
-    await send_lead_magnet(cb.from_user.id, cb.bot)
+    await send_lead_magnet(cb.from_user.id, bot)
     await start_booking(cb, state)
 
 
@@ -430,7 +430,7 @@ async def offer_expensive(cb: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(Funnel.offer_reaction, F.data == "offer:think")
-async def offer_think(cb: CallbackQuery, state: FSMContext):
+async def offer_think(cb: CallbackQuery, state: FSMContext, bot: Bot):
     await cb.answer()
     await edit_or_answer(cb,
         "Конечно, спешить не нужно 🤝\n\n"
@@ -443,14 +443,14 @@ async def offer_think(cb: CallbackQuery, state: FSMContext):
             ("📨 Напишу сам позже",     "final:later"),
         )
     )
-    await send_lead_magnet(cb.from_user.id, cb.bot)
+    await send_lead_magnet(cb.from_user.id, bot)
     await state.set_state(Funnel.objection)
 
 
 # ── ФИНАЛ ─────────────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("final:"))
-async def final(cb: CallbackQuery, state: FSMContext):
+async def final(cb: CallbackQuery, state: FSMContext, bot: Bot):
     await cb.answer()
     tag = cb.data.split(":")[1]
     await cancel_followup(cb.from_user.id)
@@ -460,12 +460,12 @@ async def final(cb: CallbackQuery, state: FSMContext):
             "🎉 Отлично! Осталось согласовать детали.\n\n"
             "Запишемся на 20-минутный созвон — обсудим проект и стартуем 🚀"
         )
-        await send_lead_magnet(cb.from_user.id, cb.bot)
+        await send_lead_magnet(cb.from_user.id, bot)
         await start_booking(cb, state)
         return
     elif tag == "call":
         await edit_or_answer(cb, "📞 Отлично! Запишемся на созвон 👇")
-        await send_lead_magnet(cb.from_user.id, cb.bot)
+        await send_lead_magnet(cb.from_user.id, bot)
         await start_booking(cb, state)
         return
     elif tag in ("later", "think"):
@@ -473,7 +473,7 @@ async def final(cb: CallbackQuery, state: FSMContext):
             "👍 Хорошо! Когда будете готовы — просто напишите /start\n\n"
             "Буду рад помочь с вашим проектом 🙌"
         )
-        await send_lead_magnet(cb.from_user.id, cb.bot)
+        await send_lead_magnet(cb.from_user.id, bot)
     await state.clear()
 
 
