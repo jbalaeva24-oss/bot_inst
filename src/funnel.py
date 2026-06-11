@@ -35,19 +35,17 @@ async def edit_or_answer(cb: CallbackQuery, text: str, reply_markup=None, parse_
         await cb.message.answer(text, reply_markup=reply_markup, parse_mode=parse_mode)
 
 
-async def send_lead_magnet(chat_id: int, bot):
+async def send_lead_magnet(message):
     try:
         if config.LEAD_MAGNET_FILE_ID:
-            await bot.send_document(
-                chat_id,
+            await message.answer_document(
                 config.LEAD_MAGNET_FILE_ID,
                 caption=config.LEAD_MAGNET_CAPTION
             )
             return
         path = Path(config.LEAD_MAGNET_PATH)
         if path.exists():
-            await bot.send_document(
-                chat_id,
+            await message.answer_document(
                 FSInputFile(str(path)),
                 caption=config.LEAD_MAGNET_CAPTION
             )
@@ -75,7 +73,7 @@ async def notify_admins(bot, lead: dict):
 # ── БЛОК 1: ВХОД ──────────────────────────────────────────────────────────────
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext, bot: Bot):
+async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
     user = message.from_user
     await upsert_user(user.id, user.username, user.full_name)
@@ -378,14 +376,14 @@ async def q_timeline(cb: CallbackQuery, state: FSMContext):
 # ── БЛОК 5: РАБОТА С ВОЗРАЖЕНИЯМИ ────────────────────────────────────────────
 
 @router.callback_query(Funnel.offer_reaction, F.data == "offer:yes")
-async def offer_yes(cb: CallbackQuery, state: FSMContext, bot: Bot):
+async def offer_yes(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     await cancel_followup(cb.from_user.id)
     await edit_or_answer(cb,
         "🎉 Отлично! Рад работать с вами.\n\n"
         "Запишемся на короткий созвон — обсудим детали и стартуем 🚀"
     )
-    await send_lead_magnet(cb.from_user.id, bot)
+    await send_lead_magnet(cb.message)
     await start_booking(cb, state)
 
 
@@ -430,7 +428,7 @@ async def offer_expensive(cb: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(Funnel.offer_reaction, F.data == "offer:think")
-async def offer_think(cb: CallbackQuery, state: FSMContext, bot: Bot):
+async def offer_think(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     await edit_or_answer(cb,
         "Конечно, спешить не нужно 🤝\n\n"
@@ -443,14 +441,14 @@ async def offer_think(cb: CallbackQuery, state: FSMContext, bot: Bot):
             ("📨 Напишу сам позже",     "final:later"),
         )
     )
-    await send_lead_magnet(cb.from_user.id, bot)
+    await send_lead_magnet(cb.message)
     await state.set_state(Funnel.objection)
 
 
 # ── ФИНАЛ ─────────────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("final:"))
-async def final(cb: CallbackQuery, state: FSMContext, bot: Bot):
+async def final(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     tag = cb.data.split(":")[1]
     await cancel_followup(cb.from_user.id)
@@ -460,12 +458,12 @@ async def final(cb: CallbackQuery, state: FSMContext, bot: Bot):
             "🎉 Отлично! Осталось согласовать детали.\n\n"
             "Запишемся на 20-минутный созвон — обсудим проект и стартуем 🚀"
         )
-        await send_lead_magnet(cb.from_user.id, bot)
+        await send_lead_magnet(cb.message)
         await start_booking(cb, state)
         return
     elif tag == "call":
         await edit_or_answer(cb, "📞 Отлично! Запишемся на созвон 👇")
-        await send_lead_magnet(cb.from_user.id, bot)
+        await send_lead_magnet(cb.message)
         await start_booking(cb, state)
         return
     elif tag in ("later", "think"):
@@ -473,7 +471,7 @@ async def final(cb: CallbackQuery, state: FSMContext, bot: Bot):
             "👍 Хорошо! Когда будете готовы — просто напишите /start\n\n"
             "Буду рад помочь с вашим проектом 🙌"
         )
-        await send_lead_magnet(cb.from_user.id, bot)
+        await send_lead_magnet(cb.message)
     await state.clear()
 
 
