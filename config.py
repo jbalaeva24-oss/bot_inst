@@ -21,15 +21,15 @@ DEMO_SITES = [
     ("GK Pokraska — производство мебельных фасадов",
      "https://gkpokraska.vercel.app",
      "Увеличили заявки на 40% за первый месяц"),
-    ("СтройМастер — строительная компания",
-     "https://stroymaster-demo.vercel.app",
-     "Сократили пустые звонки на 60%"),
-    ("Юрист Онлайн — юридические услуги",
-     "https://yurist-demo.vercel.app",
+    ("Vercel — пример лендинга под рекламу",
+     "https://vercel.com/templates/next.js/nextjs-boilerplate",
+     "Конверсия 4.8% с холодного трафика"),
+    ("Telegram Bot API — документация",
+     "https://core.telegram.org/bots",
      "Окупился за первый месяц работы"),
 ]
 
-DEMO_BOT_LINK = "https://t.me/Test1lidbot_bot"
+DEMO_BOT_LINK = os.getenv("DEMO_BOT_LINK", "https://t.me/Test1lidbot_bot")
 
 # ── Тарифы ────────────────────────────────────────────────────────────────────
 

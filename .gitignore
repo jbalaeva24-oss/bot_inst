@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+data/
+src/__pycache__/
+src/funnel_bot.egg-info/
+*.db

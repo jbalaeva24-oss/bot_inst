@@ -28,24 +28,37 @@ router = Router()
 
 # ── хелперы ───────────────────────────────────────────────────────────────────
 
-async def edit_or_answer(cb: CallbackQuery, text: str, reply_markup=None):
+async def edit_or_answer(cb: CallbackQuery, text: str, reply_markup=None, parse_mode="HTML"):
     try:
-        await cb.message.edit_text(text, reply_markup=reply_markup)
+        await cb.message.edit_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
     except Exception:
-        await cb.message.answer(text, reply_markup=reply_markup)
+        await cb.message.answer(text, reply_markup=reply_markup, parse_mode=parse_mode)
 
+
+_cached_file_id: str = ""
 
 async def send_lead_magnet(message: Message):
+    global _cached_file_id
+    caption = config.LEAD_MAGNET_CAPTION
     try:
-        path = Path(config.LEAD_MAGNET_PATH)
+        # Если есть сохранённый file_id — используем его (быстро)
+        if _cached_file_id:
+            await message.answer_document(_cached_file_id, caption=caption)
+            return
         if config.LEAD_MAGNET_FILE_ID:
-            await message.answer_document(config.LEAD_MAGNET_FILE_ID,
-                                          caption="🎁 Держи гайд — пригодится!")
-        elif path.exists():
-            await message.answer_document(FSInputFile(str(path)),
-                                          caption="🎁 Держи гайд — пригодится!")
+            await message.answer_document(config.LEAD_MAGNET_FILE_ID, caption=caption)
+            return
+        path = Path(config.LEAD_MAGNET_PATH)
+        if path.exists():
+            msg = await message.answer_document(FSInputFile(str(path)), caption=caption)
+            # Кешируем file_id для следующих отправок
+            if msg.document:
+                _cached_file_id = msg.document.file_id
+                log.info("PDF file_id закеширован: %s", _cached_file_id)
+        else:
+            log.warning("PDF не найден: %s", path)
     except Exception as e:
-        log.warning("lead magnet: %s", e)
+        log.error("send_lead_magnet: %s", e)
 
 
 async def notify_admins(bot, lead: dict):
@@ -451,10 +464,12 @@ async def final(cb: CallbackQuery, state: FSMContext):
             "🎉 Отлично! Осталось согласовать детали.\n\n"
             "Запишемся на 20-минутный созвон — обсудим проект и стартуем 🚀"
         )
+        await send_lead_magnet(cb.message)
         await start_booking(cb, state)
         return
     elif tag == "call":
         await edit_or_answer(cb, "📞 Отлично! Запишемся на созвон 👇")
+        await send_lead_magnet(cb.message)
         await start_booking(cb, state)
         return
     elif tag in ("later", "think"):
@@ -462,6 +477,7 @@ async def final(cb: CallbackQuery, state: FSMContext):
             "👍 Хорошо! Когда будете готовы — просто напишите /start\n\n"
             "Буду рад помочь с вашим проектом 🙌"
         )
+        await send_lead_magnet(cb.message)
     await state.clear()
 
 
