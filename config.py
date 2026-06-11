@@ -11,6 +11,14 @@ CRM_WEBHOOK_URL: str = os.getenv("CRM_WEBHOOK_URL", "")
 DB_PATH: str = str(BASE_DIR / "data" / "leads.db")
 LEAD_MAGNET_FILE_ID: str = os.getenv("LEAD_MAGNET_FILE_ID", "")
 LEAD_MAGNET_PATH: str = str(BASE_DIR / "assets" / "guide.pdf")
+LEAD_MAGNET_CAPTION: str = (
+    "🎁 Держи гайд «Бот, лендинг или сайт — как не ошибиться»\n\n"
+    "Внутри:\n"
+    "→ сравнение по стоимости, срокам и отдаче\n"
+    "→ 3 реальных кейса с цифрами\n"
+    "→ алгоритм выбора за 5 шагов\n\n"
+    "Читается за 12 минут. Сохраняй 📌"
+)
 
 FOLLOWUP_HOURS: int = 1
 SKIP_LABEL = "Пропустить →"
