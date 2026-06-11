@@ -91,17 +91,19 @@ async def booking_contact_received(message: Message, state: FSMContext) -> None:
 
     await cancel_followup(user.id)
 
-    # Отправляем гайд
+    # Отправляем гайд напрямую через bot
     try:
         if config.LEAD_MAGNET_FILE_ID:
-            await message.answer_document(
+            await message.bot.send_document(
+                user.id,
                 config.LEAD_MAGNET_FILE_ID,
                 caption=config.LEAD_MAGNET_CAPTION
             )
         else:
             path = Path(config.LEAD_MAGNET_PATH)
             if path.exists():
-                await message.answer_document(
+                await message.bot.send_document(
+                    user.id,
                     FSInputFile(str(path)),
                     caption=config.LEAD_MAGNET_CAPTION
                 )

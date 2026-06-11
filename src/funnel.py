@@ -35,17 +35,19 @@ async def edit_or_answer(cb: CallbackQuery, text: str, reply_markup=None, parse_
         await cb.message.answer(text, reply_markup=reply_markup, parse_mode=parse_mode)
 
 
-async def send_lead_magnet(message: Message):
+async def send_lead_magnet(chat_id: int, bot):
     try:
         if config.LEAD_MAGNET_FILE_ID:
-            await message.answer_document(
+            await bot.send_document(
+                chat_id,
                 config.LEAD_MAGNET_FILE_ID,
                 caption=config.LEAD_MAGNET_CAPTION
             )
             return
         path = Path(config.LEAD_MAGNET_PATH)
         if path.exists():
-            await message.answer_document(
+            await bot.send_document(
+                chat_id,
                 FSInputFile(str(path)),
                 caption=config.LEAD_MAGNET_CAPTION
             )
@@ -383,7 +385,7 @@ async def offer_yes(cb: CallbackQuery, state: FSMContext):
         "🎉 Отлично! Рад работать с вами.\n\n"
         "Запишемся на короткий созвон — обсудим детали и стартуем 🚀"
     )
-    await send_lead_magnet(cb.message)
+    await send_lead_magnet(cb.from_user.id, cb.bot)
     await start_booking(cb, state)
 
 
@@ -441,7 +443,7 @@ async def offer_think(cb: CallbackQuery, state: FSMContext):
             ("📨 Напишу сам позже",     "final:later"),
         )
     )
-    await send_lead_magnet(cb.message)
+    await send_lead_magnet(cb.from_user.id, cb.bot)
     await state.set_state(Funnel.objection)
 
 
@@ -458,12 +460,12 @@ async def final(cb: CallbackQuery, state: FSMContext):
             "🎉 Отлично! Осталось согласовать детали.\n\n"
             "Запишемся на 20-минутный созвон — обсудим проект и стартуем 🚀"
         )
-        await send_lead_magnet(cb.message)
+        await send_lead_magnet(cb.from_user.id, cb.bot)
         await start_booking(cb, state)
         return
     elif tag == "call":
         await edit_or_answer(cb, "📞 Отлично! Запишемся на созвон 👇")
-        await send_lead_magnet(cb.message)
+        await send_lead_magnet(cb.from_user.id, cb.bot)
         await start_booking(cb, state)
         return
     elif tag in ("later", "think"):
@@ -471,7 +473,7 @@ async def final(cb: CallbackQuery, state: FSMContext):
             "👍 Хорошо! Когда будете готовы — просто напишите /start\n\n"
             "Буду рад помочь с вашим проектом 🙌"
         )
-        await send_lead_magnet(cb.message)
+        await send_lead_magnet(cb.from_user.id, cb.bot)
     await state.clear()
 
 
