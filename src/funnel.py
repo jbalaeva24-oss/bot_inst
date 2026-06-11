@@ -75,12 +75,14 @@ async def notify_admins(bot, lead: dict):
 # ── БЛОК 1: ВХОД ──────────────────────────────────────────────────────────────
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext):
+async def cmd_start(message: Message, state: FSMContext, bot: Bot):
     await state.clear()
     user = message.from_user
     await upsert_user(user.id, user.username, user.full_name)
     await cancel_followup(user.id)
     await schedule_followups(user.id)
+
+    await send_lead_magnet(user.id, bot)
 
     await message.answer(
         "Привет! 👋\n\n"
