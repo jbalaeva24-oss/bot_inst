@@ -81,7 +81,7 @@ async def cmd_start(message: Message, state: FSMContext):
     await schedule_followups(user.id)
 
     await message.answer(
-        "Привет! 👋\n\n"
+        "Привет! 👋 v2\n\n"
         "Я делаю Telegram-боты, лендинги и сайты под ключ.\n"
         "Помогаю бизнесу получать больше клиентов.\n\n"
         "Что вас интересует?",
