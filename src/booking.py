@@ -7,11 +7,9 @@ from aiogram.types import CallbackQuery, Message
 import config
 from src.states import F as Funnel
 from src.keyboards import kb, remove_keyboard
-from src.db import cancel_followup
 from pathlib import Path
 from aiogram.types import FSInputFile
-
-_cached_file_id: str = ""
+from src.db import cancel_followup
 
 log = logging.getLogger(__name__)
 router = Router()
@@ -93,18 +91,20 @@ async def booking_contact_received(message: Message, state: FSMContext) -> None:
 
     await cancel_followup(user.id)
 
-    # Отправляем гайд если ещё не отправили
-    global _cached_file_id
+    # Отправляем гайд
     try:
-        path = Path(config.LEAD_MAGNET_PATH)
-        if _cached_file_id:
-            await message.answer_document(_cached_file_id, caption=config.LEAD_MAGNET_CAPTION)
-        elif config.LEAD_MAGNET_FILE_ID:
-            await message.answer_document(config.LEAD_MAGNET_FILE_ID, caption=config.LEAD_MAGNET_CAPTION)
-        elif path.exists():
-            msg = await message.answer_document(FSInputFile(str(path)), caption=config.LEAD_MAGNET_CAPTION)
-            if msg.document:
-                _cached_file_id = msg.document.file_id
+        if config.LEAD_MAGNET_FILE_ID:
+            await message.answer_document(
+                config.LEAD_MAGNET_FILE_ID,
+                caption=config.LEAD_MAGNET_CAPTION
+            )
+        else:
+            path = Path(config.LEAD_MAGNET_PATH)
+            if path.exists():
+                await message.answer_document(
+                    FSInputFile(str(path)),
+                    caption=config.LEAD_MAGNET_CAPTION
+                )
     except Exception as e:
         log.warning("guide в booking: %s", e)
 

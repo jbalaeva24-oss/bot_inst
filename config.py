@@ -9,7 +9,11 @@ BASE_DIR = Path(__file__).parent
 BOOKING_URL: str = os.getenv("BOOKING_URL", "https://calendly.com/your-link")
 CRM_WEBHOOK_URL: str = os.getenv("CRM_WEBHOOK_URL", "")
 DB_PATH: str = str(BASE_DIR / "data" / "leads.db")
-LEAD_MAGNET_FILE_ID: str = os.getenv("LEAD_MAGNET_FILE_ID", "")
+# file_id PDF (получен через прямую отправку, не зависит от файловой системы)
+LEAD_MAGNET_FILE_ID: str = os.getenv(
+    "LEAD_MAGNET_FILE_ID",
+    "BQACAgIAAxkDAAPwaircxqUAAd85VKcMimm6MigNpDewAAJJqwAC6wJZSXfLS0ZzgkHfPAQ"
+)
 LEAD_MAGNET_PATH: str = str(BASE_DIR / "assets" / "guide.pdf")
 LEAD_MAGNET_CAPTION: str = (
     "🎁 Держи гайд «Бот, лендинг или сайт — как не ошибиться»\n\n"
