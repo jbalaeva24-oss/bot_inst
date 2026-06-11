@@ -12,7 +12,7 @@ DB_PATH: str = str(BASE_DIR / "data" / "leads.db")
 # file_id PDF (получен через прямую отправку, не зависит от файловой системы)
 LEAD_MAGNET_FILE_ID: str = os.getenv(
     "LEAD_MAGNET_FILE_ID",
-    "BQACAgIAAxkDAAPwaircxqUAAd85VKcMimm6MigNpDewAAJJqwAC6wJZSXfLS0ZzgkHfPAQ"
+    "BQACAgIAAxkDAAIBJ2oq4IYYxCNI_rMYvFQo1sq9JRArAAK3qQACgmVZSREZwaSHTogqPAQ"
 )
 LEAD_MAGNET_PATH: str = str(BASE_DIR / "assets" / "guide.pdf")
 LEAD_MAGNET_CAPTION: str = (
