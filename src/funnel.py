@@ -366,31 +366,38 @@ TIMELINE_COMMENTS = {
 
 
 async def _send_offer_card(message, title: str, details: str, timeline_comment: str):
-    from src.offer_card import make_offer_card
-    # Разделяем цену от деталей
     lines = details.strip().split("\n")
-    price_line = ""
-    body_lines = []
-    timeline_line = ""
+    body_lines, timeline_line = [], ""
     for line in lines:
-        if "₽" in line and not price_line:
-            price_line = ""  # уже в title
-        elif line.startswith("⏱"):
+        if line.startswith("⏱"):
             timeline_line = line.replace("⏱", "").replace("Срок:", "").strip()
         else:
             body_lines.append(line)
     body = "\n".join(body_lines)
+
+    card_sent = False
     try:
+        from src.offer_card import make_offer_card
         buf = make_offer_card(title, "", body, timeline_line)
-        from aiogram.types import BufferedInputFile as BIF
         await message.answer_photo(
-            BIF(buf.read(), filename="offer.jpg"),
-            caption=f"{timeline_comment}\n\n<b>Что входит — на карточке выше 👆</b>",
+            BufferedInputFile(buf.read(), filename="offer.jpg"),
+            caption=(
+                f"{timeline_comment}\n\n"
+                f"<b>{title}</b>\n\n"
+                f"<b>Что входит:</b>\n{body}\n\n"
+                f"⏱ {timeline_line}"
+            ),
             parse_mode="HTML",
         )
+        card_sent = True
     except Exception as e:
-        log.warning("offer card failed: %s", e)
-        await message.answer(f"{timeline_comment}\n\n🌐 <b>{title}</b>\n\n{details}", parse_mode="HTML")
+        log.warning("offer card: %s", e)
+
+    if not card_sent:
+        await message.answer(
+            f"{timeline_comment}\n\n<b>{title}</b>\n\n{details}",
+            parse_mode="HTML"
+        )
 
 
 @router.callback_query(Funnel.q_timeline, F.data.startswith("timeline:"))
@@ -592,6 +599,12 @@ async def cmd_export(message: Message):
         )
     finally:
         os.unlink(path)
+
+
+@router.message(F.sticker)
+@admin_only
+async def get_sticker_id(message: Message):
+    await message.answer(f"Sticker file_id:\n<code>{message.sticker.file_id}</code>", parse_mode="HTML")
 
 
 @router.message(Command("broadcast"))
