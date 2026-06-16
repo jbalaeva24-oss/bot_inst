@@ -1,21 +1,23 @@
-"""Генерация карточки КП в стиле премиального сайта."""
-import io, os, logging, re
+"""
+Карточка КП в стиле сайта GK Pokraska:
+светлый фон, золото, круглые чекмарки, чёткая типографика.
+"""
+import io, os, logging
 
 log = logging.getLogger(__name__)
 
-# ── Цвета ────────────────────────────────────────────────────────────────────
+# ── Цвета сайта ──────────────────────────────────────────────────────────────
+CREAM   = (252, 251, 248)   # фон — тёплый белый
 WHITE   = (255, 255, 255)
-BGLIGHT = (248, 248, 252)   # очень светлый фон
-BGCARD  = (255, 255, 255)   # карточка
-BORDER  = (230, 228, 245)   # граница
-PUR1    = ( 99,  91, 255)   # фиолетовый основной
-PUR2    = ( 75,  68, 204)   # фиолетовый тёмный
-PUR3    = (130, 120, 255)   # фиолетовый светлый
-DARK    = ( 18,  17,  35)   # почти чёрный текст
-GRAY1   = ( 90,  88, 110)   # серый текст
-GRAY2   = (165, 163, 185)   # светлый серый
-GREEN   = ( 34, 197,  94)   # зелёный для галочек
-LGPUR   = (245, 244, 255)   # очень светло-фиолетовый (фон фич)
+GOLD    = (196, 148,  58)   # золото как на сайте
+GOLD_L  = (220, 176,  80)   # золото светлее (hover)
+GOLD_D  = (150, 110,  35)   # золото тёмное
+DARK    = ( 18,  16,  12)   # почти чёрный для заголовков
+CHAR    = ( 45,  42,  35)   # тёмно-коричневый для текста
+GRAY1   = ( 90,  88,  80)   # серый текст
+GRAY2   = (180, 178, 170)   # светлый серый
+BGBAR   = ( 38,  34,  28)   # тёмная плашка статистики (как на сайте)
+BGSUB   = (245, 243, 237)   # светлый блок фич
 
 
 def _font(size: int, bold: bool = False):
@@ -28,8 +30,8 @@ def _font(size: int, bold: bool = False):
             str(config.BASE_DIR / "assets" / "Montserrat-Bold.ttf"),
         ]
     candidates += [
-        str(config.BASE_DIR / "assets" / "Inter-Regular.ttf"),
         str(config.BASE_DIR / "assets" / "Inter-SemiBold.ttf"),
+        str(config.BASE_DIR / "assets" / "Inter-Regular.ttf"),
         str(config.BASE_DIR / "assets" / "Montserrat-Regular.ttf"),
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -59,178 +61,171 @@ def _clean(text: str) -> str:
     return ''.join(result).strip()
 
 
-def _gradient_rect(img, x0, y0, x1, y1, color_top, color_bot):
-    """Вертикальный градиент через построчный рисунок."""
+def _gold_circle_check(img, cx, cy, r, line_w=2):
+    """Рисует золотой круг с галочкой внутри — как на сайте."""
     from PIL import ImageDraw
     d = ImageDraw.Draw(img)
-    h = y1 - y0
-    for i in range(h):
-        t = i / max(h - 1, 1)
-        r = int(color_top[0] + (color_bot[0] - color_top[0]) * t)
-        g = int(color_top[1] + (color_bot[1] - color_top[1]) * t)
-        b = int(color_top[2] + (color_bot[2] - color_top[2]) * t)
-        d.line([(x0, y0 + i), (x1, y0 + i)], fill=(r, g, b))
+    # Круг
+    d.ellipse([cx - r, cy - r, cx + r, cy + r],
+              outline=GOLD, width=line_w, fill=None)
+    # Галочка (два отрезка)
+    gx, gy = cx, cy
+    d.line([(gx - r//2, gy), (gx - r//6, gy + r//2)], fill=GOLD, width=line_w)
+    d.line([(gx - r//6, gy + r//2), (gx + r//2, gy - r//2)], fill=GOLD, width=line_w)
 
 
-def _round_rect(d, xy, r, fill, outline=None, outline_w=2):
-    x0, y0, x1, y1 = xy
-    d.rectangle([x0 + r, y0, x1 - r, y1], fill=fill)
-    d.rectangle([x0, y0 + r, x1, y1 - r], fill=fill)
-    for cx, cy in [(x0, y0), (x1 - 2*r, y0), (x0, y1 - 2*r), (x1 - 2*r, y1 - 2*r)]:
-        d.ellipse([cx, cy, cx + 2*r, cy + 2*r], fill=fill)
-    if outline:
-        d.rounded_rectangle([x0, y0, x1, y1], radius=r, outline=outline, width=outline_w)
+def _shadow(d, x0, y0, x1, y1, r, layers=5):
+    """Мягкая тень под карточкой."""
+    for i in range(layers, 0, -1):
+        alpha = 255 - i * 28
+        shade = (alpha, alpha, alpha - 5)
+        d.rounded_rectangle(
+            [x0 + i, y0 + i, x1 + i, y1 + i],
+            radius=r, fill=shade
+        )
 
 
 def make_offer_card(title: str, _unused: str, details: str, timeline: str) -> io.BytesIO:
     from PIL import Image, ImageDraw
 
-    W, H = 1000, 600
-    RADIUS = 18
-    PAD = 32
+    W, H = 1020, 580
 
-    # ── Основной холст ───────────────────────────────────────────────────────
-    img = Image.new("RGB", (W, H), BGLIGHT)
+    img = Image.new("RGB", (W, H), CREAM)
     d = ImageDraw.Draw(img)
 
-    # Тень карточки (несколько прямоугольников со смещением)
-    for sh in range(6, 0, -1):
-        shade = 245 - sh * 3
-        d.rounded_rectangle(
-            [PAD + sh, PAD + sh, W - PAD + sh, H - PAD + sh],
-            radius=RADIUS, fill=(shade, shade, shade + 5)
-        )
+    # ── Тень карточки ────────────────────────────────────────────────────────
+    CARD_M = 22          # отступ карточки от края
+    R = 16               # радиус скругления
+    _shadow(d, CARD_M, CARD_M, W - CARD_M, H - CARD_M, R, layers=6)
 
-    # ── Карточка (белый фон) ─────────────────────────────────────────────────
-    d.rounded_rectangle([PAD, PAD, W - PAD, H - PAD], radius=RADIUS, fill=BGCARD)
+    # ── Белая карточка ───────────────────────────────────────────────────────
+    d.rounded_rectangle([CARD_M, CARD_M, W - CARD_M, H - CARD_M],
+                        radius=R, fill=WHITE)
 
-    # ── Градиентный хедер ───────────────────────────────────────────────────
-    HEADER_H = 175
-    # Рисуем градиент поверх, потом маскируем углы
-    _gradient_rect(img, PAD, PAD, W - PAD, PAD + HEADER_H, PUR1, PUR2)
+    # ── Левая золотая полоса (3 px) — фирменный элемент ─────────────────────
+    d.rectangle([CARD_M, CARD_M, CARD_M + 5, H - CARD_M], fill=GOLD)
 
-    # Закруглённые верхние углы (перерисовываем)
-    d = ImageDraw.Draw(img)
-    # Верхние углы градиентные
-    corner_img = Image.new("RGB", (W, H), BGCARD)
-    _gradient_rect(corner_img, PAD, PAD, W - PAD, PAD + HEADER_H, PUR1, PUR2)
-    corner_d = ImageDraw.Draw(corner_img)
+    # ── ЛЕВАЯ КОЛОНКА: заголовок + цена ──────────────────────────────────────
+    LEFT_W = 360
+    LX = CARD_M + 36
+    TOP = CARD_M + 30
 
-    # Белые треугольники в углах (чтобы скрыть лишнее)
-    d.rounded_rectangle(
-        [PAD, PAD, W - PAD, PAD + HEADER_H + RADIUS],
-        radius=RADIUS, fill=None, outline=None
-    )
+    # Надпись-категория маленькими буквами
+    f_cat   = _font(12, bold=True)
+    f_name  = _font(26, bold=True)
+    f_price = _font(40, bold=True)
+    f_item  = _font(18)
+    f_ibd   = _font(18, bold=True)
+    f_small = _font(14)
+    f_stat_n = _font(22, bold=True)
+    f_stat_l = _font(11)
 
-    # Перерисовываем градиент через маску
-    mask = Image.new("L", (W, H), 0)
-    mask_d = ImageDraw.Draw(mask)
-    mask_d.rounded_rectangle([PAD, PAD, W - PAD, PAD + HEADER_H], radius=RADIUS, fill=255)
-    mask_d.rectangle([PAD, PAD + HEADER_H - RADIUS, W - PAD, PAD + HEADER_H], fill=255)
+    d.text((LX, TOP), "КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ", font=f_cat, fill=GOLD)
 
-    grad_layer = Image.new("RGB", (W, H), BGCARD)
-    _gradient_rect(grad_layer, PAD, PAD, W - PAD, PAD + HEADER_H, PUR1, PUR2)
-    img.paste(grad_layer, mask=mask)
+    # Разбиваем title: "🌐 БАЗОВЫЙ САЙТ — 25 000 ₽"
+    raw = _clean(title)
+    # Убираем эмодзи-заглушку в начале (неCyrillic/non-ASCII слова)
+    if raw and not raw[0].isalpha():
+        raw = raw[1:].strip()
+    # Делим на имя и цену по " - " или " -- "
+    if ' - ' in raw:
+        pkg_name, pkg_price = raw.split(' - ', 1)
+    elif '--' in raw:
+        pkg_name, pkg_price = raw.split('--', 1)
+    else:
+        pkg_name, pkg_price = raw, ''
 
-    d = ImageDraw.Draw(img)
+    pkg_name  = pkg_name.strip()
+    pkg_price = pkg_price.strip()
 
-    # ── Декоративные круги в хедере ─────────────────────────────────────────
-    d.ellipse([W - 180, PAD - 40, W + 20, PAD + 160], fill=PUR3, outline=None)
-    d.ellipse([W - 130, PAD - 70, W + 50, PAD + 110], fill=PUR1, outline=None)
-    # Перекрываем выход за пределы карточки
-    d.rectangle([W - PAD, 0, W, H], fill=BGLIGHT)
-    d.rectangle([0, 0, W, PAD], fill=BGLIGHT)
+    # Золотая линия под категорией
+    d.rectangle([LX, TOP + 20, LX + 180, TOP + 22], fill=GOLD)
 
-    # Снова рисуем границу карточки поверх
-    d.rounded_rectangle([PAD, PAD, W - PAD, H - PAD], radius=RADIUS,
-                         fill=None, outline=BORDER, width=2)
+    d.text((LX, TOP + 30), pkg_name, font=f_name, fill=DARK)
 
-    # ── Тег в хедере ────────────────────────────────────────────────────────
-    f_tag   = _font(13, bold=True)
-    f_title = _font(28, bold=True)
-    f_price = _font(36, bold=True)
-    f_item  = _font(19)
-    f_check = _font(19, bold=True)
-    f_small = _font(15)
-    f_time  = _font(16, bold=True)
-
-    # Бейдж "КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ"
-    tag_text = "КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ"
-    tw = d.textlength(tag_text, font=f_tag) if hasattr(d, 'textlength') else 240
-    badge_x, badge_y = PAD + 28, PAD + 22
-    d.rounded_rectangle(
-        [badge_x - 10, badge_y - 5, badge_x + tw + 10, badge_y + 20],
-        radius=10, fill=(255, 255, 255, 40)
-    )
-    # Белый полупрозрачный эффект: просто рисуем тёмный бейдж
-    d.rounded_rectangle(
-        [badge_x - 10, badge_y - 5, badge_x + tw + 10, badge_y + 20],
-        radius=10, fill=(80, 70, 200)
-    )
-    d.text((badge_x, badge_y), tag_text, font=f_tag, fill=(220, 215, 255))
-
-    # Название пакета (без эмодзи и цены)
-    raw_title = _clean(title)
-    # Отделяем название от цены  "БАЗОВЫЙ САЙТ - 25 000 р"
-    parts = raw_title.split(" - ", 1) if " - " in raw_title else raw_title.split("  ", 1)
-    pkg_name  = parts[0].strip()
-    pkg_price = parts[1].strip() if len(parts) > 1 else ""
-
-    d.text((PAD + 28, PAD + 58), pkg_name, font=f_title, fill=WHITE)
+    # Цена — крупно, золотом
     if pkg_price:
-        d.text((PAD + 28, PAD + 100), pkg_price, font=f_price, fill=(255, 230, 100))
+        d.text((LX, TOP + 76), pkg_price, font=f_price, fill=GOLD)
+    else:
+        d.text((LX, TOP + 76), "Обсудим на созвоне", font=f_name, fill=GOLD)
 
-    # Срок в хедере справа
+    # Срок
     if timeline:
         tl = _clean(f"Срок: {timeline}")
-        d.rounded_rectangle(
-            [W - PAD - 200, PAD + 105, W - PAD - 28, PAD + 138],
-            radius=20, fill=(80, 70, 200)
-        )
-        d.text((W - PAD - 190, PAD + 111), tl, font=f_time, fill=(220, 215, 255))
+        d.text((LX, TOP + 130), tl, font=f_small, fill=GRAY1)
 
-    # ── Список фич ──────────────────────────────────────────────────────────
-    items = [l.strip() for l in details.split("\n") if l.strip() and not l.startswith("⏱")]
+    # Разделитель
+    sep_x = CARD_M + LEFT_W + 20
+    d.rectangle([sep_x, CARD_M + 20, sep_x + 1, H - CARD_M - 80],
+                fill=(230, 228, 220))
 
-    # Раскладываем в 2 колонки если фич много
-    col_count = 2 if len(items) >= 5 else 1
-    col_w = (W - PAD * 2 - 60) // col_count
-    content_y = PAD + HEADER_H + 22
-    content_x = PAD + 30
+    # ── ПРАВАЯ КОЛОНКА: фичи ─────────────────────────────────────────────────
+    RX = sep_x + 28
+    RY = CARD_M + 24
+    COL_W = W - RX - CARD_M - 20
+
+    items = [l.strip() for l in details.split("\n")
+             if l.strip() and not l.startswith("⏱")]
+
+    # 2 колонки если 5+
+    cols = 2 if len(items) >= 5 else 1
+    col_w = (COL_W - 20) // cols
+    row_h = 48
 
     for i, line in enumerate(items[:8]):
-        clean = _clean(line.replace("✅", "").strip())
+        clean = _clean(line.replace("✅", "").replace("✓", "").strip())
         if not clean:
             continue
+        col = i % cols
+        row = i // cols
+        ix = RX + col * (col_w + 20)
+        iy = RY + row * row_h
 
-        if col_count == 2:
-            col = i % 2
-            row = i // 2
-            ix = content_x + col * (col_w + 20)
-            iy = content_y + row * 46
-        else:
-            ix = content_x
-            iy = content_y + i * 46
-
-        if iy > H - PAD - 60:
+        if iy + row_h > H - CARD_M - 85:
             break
 
-        # Фоновый блок фичи
+        # Фоновый блок
         d.rounded_rectangle(
-            [ix - 12, iy - 8, ix + col_w, iy + 30],
-            radius=10, fill=LGPUR
+            [ix - 8, iy - 6, ix + col_w - 8, iy + 36],
+            radius=10, fill=BGSUB
         )
-        # Зелёная галочка
-        d.text((ix, iy), "+", font=f_check, fill=GREEN)
-        # Текст
-        d.text((ix + 26, iy + 1), clean, font=f_item, fill=DARK)
 
-    # ── Нижняя строка ───────────────────────────────────────────────────────
-    footer_y = H - PAD - 38
-    d.line([(PAD + 20, footer_y - 12), (W - PAD - 20, footer_y - 12)], fill=BORDER, width=1)
-    d.text((PAD + 30, footer_y),
-           "Оплата: 50% старт  •  50% при сдаче  •  Гарантия результата",
-           font=f_small, fill=GRAY2)
+        # Золотой круглый чекмарк
+        _gold_circle_check(img, ix + 11, iy + 15, 10, line_w=2)
+
+        # Текст
+        d.text((ix + 28, iy + 6), clean, font=f_item, fill=CHAR)
+
+    # ── Нижняя тёмная плашка (как stats bar на сайте) ────────────────────────
+    BAR_Y = H - CARD_M - 62
+    # Тёмный прямоугольник на всю ширину карточки
+    d.rounded_rectangle(
+        [CARD_M, BAR_Y, W - CARD_M, H - CARD_M],
+        radius=R, fill=BGBAR
+    )
+    # Верхняя золотая линия у плашки
+    d.rectangle([CARD_M, BAR_Y, W - CARD_M, BAR_Y + 2], fill=GOLD)
+
+    # Три блока статистики как на сайте
+    stats = [
+        ("50% старт", "ПРЕДОПЛАТА"),
+        ("50% сдача", "ОПЛАТА"),
+        ("Гарантия", "РЕЗУЛЬТАТА"),
+    ]
+    sw = (W - CARD_M * 2) // len(stats)
+    for i, (val, lbl) in enumerate(stats):
+        sx = CARD_M + i * sw + sw // 2
+        sy = BAR_Y + 12
+        d.text((sx, sy), _clean(val), font=f_stat_n, fill=GOLD,
+               anchor="mt" if hasattr(d, 'textlength') else None)
+        d.text((sx, sy + 28), lbl, font=f_stat_l, fill=GRAY2,
+               anchor="mt" if hasattr(d, 'textlength') else None)
+
+    # Вертикальные разделители в плашке
+    for i in range(1, len(stats)):
+        dvx = CARD_M + i * sw
+        d.rectangle([dvx, BAR_Y + 12, dvx + 1, H - CARD_M - 10],
+                    fill=(70, 65, 55))
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
