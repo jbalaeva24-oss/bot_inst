@@ -11,7 +11,7 @@ from pathlib import Path
 from aiogram import Router, F, Bot
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery, FSInputFile
+from aiogram.types import Message, CallbackQuery, FSInputFile, BufferedInputFile
 import tempfile, os
 
 import config
@@ -174,7 +174,7 @@ def _resize_for_tg(path: Path) -> FSInputFile:
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=85)
         buf.seek(0)
-        return FSInputFile(buf, filename=f"{path.stem}.jpg")
+        return BufferedInputFile(buf.read(), filename=f"{path.stem}.jpg")
     except Exception:
         return FSInputFile(str(path))
 
