@@ -375,25 +375,16 @@ async def _send_offer_card(message, title: str, details: str, timeline_comment: 
             body_lines.append(line)
     body = "\n".join(body_lines)
 
-    card_sent = False
     try:
         from src.offer_card import make_offer_card
         buf = make_offer_card(title, "", body, timeline_line)
         await message.answer_photo(
-            BufferedInputFile(buf.read(), filename="offer.jpg"),
-            caption=(
-                f"{timeline_comment}\n\n"
-                f"<b>{title}</b>\n\n"
-                f"<b>Что входит:</b>\n{body}\n\n"
-                f"⏱ {timeline_line}"
-            ),
+            BufferedInputFile(buf.read(), filename="offer.png"),
+            caption=f"{timeline_comment}",
             parse_mode="HTML",
         )
-        card_sent = True
     except Exception as e:
         log.warning("offer card: %s", e)
-
-    if not card_sent:
         await message.answer(
             f"{timeline_comment}\n\n<b>{title}</b>\n\n{details}",
             parse_mode="HTML"
