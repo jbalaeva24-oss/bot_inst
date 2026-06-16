@@ -1,65 +1,81 @@
 """Генерация картинки-КП через Pillow."""
 import io
-from pathlib import Path
-import config
+import re
 
-FONT_DIR = config.BASE_DIR / "assets"
-
-# Цвета
-BG = (15, 15, 25)
+BG     = (15, 15, 25)
 ACCENT = (99, 91, 255)
-WHITE = (255, 255, 255)
-GRAY = (160, 160, 180)
-GREEN = (50, 200, 100)
+WHITE  = (255, 255, 255)
+GRAY   = (170, 170, 190)
+GREEN  = (60, 210, 110)
+DARK   = (30, 30, 50)
 
 
-def _font(name: str, size: int):
+def _strip_emoji(text: str) -> str:
+    return re.sub(r'[^\x00-\x7FА-яЁёA-Za-z0-9 .,!?:;—\-+%₽\n/()»«]', '', text).strip()
+
+
+def _font(size: int):
     from PIL import ImageFont
-    for fname in [f"Montserrat-{name}.ttf", f"Inter-{name}.ttf"]:
-        p = FONT_DIR / fname
-        if p.exists():
-            return ImageFont.truetype(str(p), size)
+    try:
+        # Пробуем системные шрифты Railway (Linux)
+        for path in [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+        ]:
+            import os
+            if os.path.exists(path):
+                return ImageFont.truetype(path, size)
+    except Exception:
+        pass
     return ImageFont.load_default()
 
 
-def make_offer_card(title: str, price_line: str, details: str, timeline: str) -> io.BytesIO:
+def make_offer_card(title: str, _unused: str, details: str, timeline: str) -> io.BytesIO:
     from PIL import Image, ImageDraw
-    W, H = 900, 600
+    W, H = 900, 580
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
 
-    # Фоновый прямоугольник-акцент слева
-    d.rectangle([0, 0, 6, H], fill=ACCENT)
+    # Акцентная полоса слева
+    d.rectangle([0, 0, 8, H], fill=ACCENT)
+
+    # Верхний блок фон
+    d.rectangle([0, 0, W, 90], fill=DARK)
+
+    f_title  = _font(30)
+    f_body   = _font(20)
+    f_small  = _font(17)
 
     # Заголовок
-    f_bold = _font("Bold", 36)
-    f_semi = _font("SemiBold", 24)
-    f_reg  = _font("Regular", 20)
-    f_small = _font("Regular", 18)
-
-    d.text((40, 40), title, font=f_bold, fill=WHITE)
-
-    # Цена
-    d.text((40, 100), price_line, font=f_semi, fill=ACCENT)
+    d.text((30, 25), _strip_emoji(title), font=f_title, fill=WHITE)
 
     # Разделитель
-    d.rectangle([40, 145, W - 40, 147], fill=(40, 40, 60))
+    d.rectangle([30, 95, W - 30, 97], fill=ACCENT)
 
-    # Детали — разбиваем по строкам
-    y = 165
+    # Детали
+    y = 115
     for line in details.split("\n"):
-        if not line.strip():
-            y += 10
+        line = line.strip()
+        if not line:
+            y += 8
             continue
-        color = GREEN if line.startswith("✅") else GRAY
-        d.text((40, y), line, font=f_reg, fill=color)
-        y += 32
+        clean = _strip_emoji(line)
+        if not clean:
+            continue
+        is_check = line.startswith("✅")
+        color = GREEN if is_check else GRAY
+        prefix = "+ " if is_check else "  "
+        d.text((30, y), prefix + clean, font=f_body, fill=color)
+        y += 30
 
-    # Срок внизу
-    d.rectangle([40, H - 70, W - 40, H - 68], fill=(40, 40, 60))
-    d.text((40, H - 55), f"⏱  {timeline}", font=f_small, fill=GRAY)
+    # Нижняя полоса со сроком
+    d.rectangle([0, H - 55, W, H], fill=DARK)
+    d.rectangle([0, H - 57, W, H - 55], fill=ACCENT)
+    tl = _strip_emoji(timeline) or timeline
+    d.text((30, H - 38), f"Срок: {tl}", font=f_small, fill=GRAY)
 
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=90)
+    img.save(buf, format="PNG")
     buf.seek(0)
     return buf
