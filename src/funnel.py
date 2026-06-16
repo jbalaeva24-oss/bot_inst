@@ -152,25 +152,15 @@ def _site_photo(idx: int):
     return None
 
 
-def _resize_for_tg(path: Path) -> FSInputFile:
+def _resize_for_tg(path: Path):
     try:
         from PIL import Image
         import io
-        W, H = 720, 1280
+        MAX = 1280
         img = Image.open(path).convert("RGB")
-        img_ratio = img.width / img.height
-        target_ratio = W / H
-        if img_ratio > target_ratio:
-            new_h = img.height
-            new_w = int(new_h * target_ratio)
-            left = (img.width - new_w) // 2
-            img = img.crop((left, 0, left + new_w, new_h))
-        else:
-            new_w = img.width
-            new_h = int(new_w / target_ratio)
-            top = (img.height - new_h) // 2
-            img = img.crop((0, top, new_w, top + new_h))
-        img = img.resize((W, H), Image.LANCZOS)
+        # только уменьшаем если слишком большое, не кропаем
+        if max(img.width, img.height) > MAX:
+            img.thumbnail((MAX, MAX), Image.LANCZOS)
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=85)
         buf.seek(0)
