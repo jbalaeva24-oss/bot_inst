@@ -148,22 +148,53 @@ def _site_photo(idx: int):
     for ext in (".png", ".jpg", ".jpeg"):
         p = Path(config.BASE_DIR / "assets" / f"site{idx + 1}{ext}")
         if p.exists():
-            return FSInputFile(str(p))
+            return _resize_for_tg(p)
     return None
+
+
+def _resize_for_tg(path: Path) -> FSInputFile:
+    try:
+        from PIL import Image
+        import io
+        W, H = 720, 1280
+        img = Image.open(path).convert("RGB")
+        img_ratio = img.width / img.height
+        target_ratio = W / H
+        if img_ratio > target_ratio:
+            new_h = img.height
+            new_w = int(new_h * target_ratio)
+            left = (img.width - new_w) // 2
+            img = img.crop((left, 0, left + new_w, new_h))
+        else:
+            new_w = img.width
+            new_h = int(new_w / target_ratio)
+            top = (img.height - new_h) // 2
+            img = img.crop((0, top, new_w, top + new_h))
+        img = img.resize((W, H), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        buf.seek(0)
+        return FSInputFile(buf, filename=f"{path.stem}.jpg")
+    except Exception:
+        return FSInputFile(str(path))
 
 
 def _site_kb(idx: int):
     from aiogram.utils.keyboard import InlineKeyboardBuilder
     total = len(config.DEMO_SITES)
     b = InlineKeyboardBuilder()
+    nav_count = 0
     if idx > 0:
         b.button(text="◀️", callback_data=f"site_nav:{idx - 1}")
+        nav_count += 1
     b.button(text=f"{idx + 1}/{total}", callback_data="noop")
+    nav_count += 1
     if idx < total - 1:
         b.button(text="▶️", callback_data=f"site_nav:{idx + 1}")
+        nav_count += 1
     b.button(text="✅ Этот понравился!", callback_data=f"site_pick:{idx + 1}")
     b.button(text="📋 Перейти к вопросам", callback_data="site_pick:skip")
-    b.adjust(3, 1, 1)
+    b.adjust(nav_count, 1, 1)
     return b.as_markup()
 
 
