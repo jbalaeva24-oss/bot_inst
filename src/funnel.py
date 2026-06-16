@@ -148,21 +148,32 @@ async def intent_explore(cb: CallbackQuery, state: FSMContext):
 async def demo_sites(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     await state.update_data(product="site")
-    s = config.DEMO_SITES
-    await edit_or_answer(cb,
-        "🎉 Отлично! Вот 3 сайта из моего портфолио:\n\n"
-        f"1️⃣ <a href='{s[0][1]}'>{s[0][0]}</a>\n"
-        f"   → {s[0][2]}\n\n"
-        f"2️⃣ <a href='{s[1][1]}'>{s[1][0]}</a>\n"
-        f"   → {s[1][2]}\n\n"
-        f"3️⃣ <a href='{s[2][1]}'>{s[2][0]}</a>\n"
-        f"   → {s[2][2]}\n\n"
+
+    from aiogram.types import InputMediaPhoto
+    media = []
+    for i, (name, caption) in enumerate(config.DEMO_SITES, 1):
+        path = Path(config.BASE_DIR / "assets" / f"site{i}.png")
+        file_id_key = f"DEMO_SITE{i}_FILE_ID"
+        file_id = os.getenv(file_id_key, "")
+        if file_id:
+            photo = file_id
+        elif path.exists():
+            photo = FSInputFile(str(path))
+        else:
+            continue
+        media.append(InputMediaPhoto(media=photo, caption=f"{i}️⃣ {name}\n→ {caption}"))
+
+    if media:
+        await cb.message.answer_media_group(media)
+
+    await cb.message.answer(
         "Какой больше всего понравился по структуре?",
         reply_markup=kb(
-            ("🎯 Первый понравился", "site_pick:1"),
-            ("💼 Второй понравился", "site_pick:2"),
-            ("⭐ Третий понравился", "site_pick:3"),
-            ("📋 Перейти к вопросам", "site_pick:skip"),
+            ("🎯 Первый", "site_pick:1"),
+            ("💼 Второй", "site_pick:2"),
+            ("⭐ Третий", "site_pick:3"),
+            ("✨ Четвёртый", "site_pick:4"),
+            ("🔥 Пятый", "site_pick:5"),
         )
     )
     await state.set_state(Funnel.demo_site_reaction)
@@ -172,7 +183,7 @@ async def demo_sites(cb: CallbackQuery, state: FSMContext):
 async def site_pick(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     pick = cb.data.split(":")[1]
-    labels = {"1": "первый", "2": "второй", "3": "третий", "skip": ""}
+    labels = {"1": "первый", "2": "второй", "3": "третий", "4": "четвёртый", "5": "пятый", "skip": ""}
     reaction = f"Отличный вкус — {labels[pick]} тоже мой фаворит! " if pick != "skip" else ""
     await state.update_data(demo_pick=pick)
     await edit_or_answer(cb,
