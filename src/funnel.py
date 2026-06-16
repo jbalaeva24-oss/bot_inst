@@ -144,39 +144,58 @@ async def intent_explore(cb: CallbackQuery, state: FSMContext):
     )
 
 
+def _site_photo(idx: int):
+    for ext in (".png", ".jpg", ".jpeg"):
+        p = Path(config.BASE_DIR / "assets" / f"site{idx + 1}{ext}")
+        if p.exists():
+            return FSInputFile(str(p))
+    return None
+
+
+def _site_kb(idx: int):
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    total = len(config.DEMO_SITES)
+    b = InlineKeyboardBuilder()
+    if idx > 0:
+        b.button(text="◀️", callback_data=f"site_nav:{idx - 1}")
+    b.button(text=f"{idx + 1}/{total}", callback_data="noop")
+    if idx < total - 1:
+        b.button(text="▶️", callback_data=f"site_nav:{idx + 1}")
+    b.button(text="✅ Этот понравился!", callback_data=f"site_pick:{idx + 1}")
+    b.button(text="📋 Перейти к вопросам", callback_data="site_pick:skip")
+    b.adjust(3, 1, 1)
+    return b.as_markup()
+
+
 @router.callback_query(F.data == "demo:sites")
 async def demo_sites(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     await state.update_data(product="site")
-
-    from aiogram.types import InputMediaPhoto
-    media = []
-    for i, (name, caption) in enumerate(config.DEMO_SITES, 1):
-        path = next((Path(config.BASE_DIR / "assets" / f"site{i}{ext}") for ext in (".png", ".jpg", ".jpeg") if (config.BASE_DIR / "assets" / f"site{i}{ext}").exists()), None)
-        file_id_key = f"DEMO_SITE{i}_FILE_ID"
-        file_id = os.getenv(file_id_key, "")
-        if file_id:
-            photo = file_id
-        elif path and path.exists():
-            photo = FSInputFile(str(path))
-        else:
-            continue
-        media.append(InputMediaPhoto(media=photo, caption=f"{i}️⃣ {name}\n→ {caption}"))
-
-    if media:
-        await cb.message.answer_media_group(media)
-
-    await cb.message.answer(
-        "Какой больше всего понравился по структуре?",
-        reply_markup=kb(
-            ("🎯 Первый", "site_pick:1"),
-            ("💼 Второй", "site_pick:2"),
-            ("⭐ Третий", "site_pick:3"),
-            ("✨ Четвёртый", "site_pick:4"),
-            ("🔥 Пятый", "site_pick:5"),
-        )
-    )
+    idx = 0
+    name, caption = config.DEMO_SITES[idx]
+    photo = _site_photo(idx)
+    if photo:
+        await cb.message.answer_photo(photo, caption=f"<b>{name}</b>\n→ {caption}", reply_markup=_site_kb(idx), parse_mode="HTML")
     await state.set_state(Funnel.demo_site_reaction)
+
+
+@router.callback_query(Funnel.demo_site_reaction, F.data.startswith("site_nav:"))
+async def site_nav(cb: CallbackQuery, state: FSMContext):
+    await cb.answer()
+    idx = int(cb.data.split(":")[1])
+    name, caption = config.DEMO_SITES[idx]
+    photo = _site_photo(idx)
+    if photo:
+        from aiogram.types import InputMediaPhoto
+        await cb.message.edit_media(
+            InputMediaPhoto(media=photo, caption=f"<b>{name}</b>\n→ {caption}", parse_mode="HTML"),
+            reply_markup=_site_kb(idx)
+        )
+
+
+@router.callback_query(F.data == "noop")
+async def noop(cb: CallbackQuery):
+    await cb.answer()
 
 
 @router.callback_query(Funnel.demo_site_reaction, F.data.startswith("site_pick:"))
