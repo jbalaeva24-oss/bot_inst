@@ -1,472 +1,527 @@
 """
-Лид-магнит PDF — Premium Gold Edition
-Запускается автоматически при старте бота (main.py)
+Лид-магнит PDF — дизайн в стиле КП:
+тёмный фон, золото, точечный паттерн, декоративные элементы.
 """
 import os
 from pathlib import Path
 from fpdf import FPDF
-from fpdf.enums import XPos, YPos
 
 BASE = Path(__file__).parent
-A   = str(BASE / "assets")
-OUT = str(BASE / "assets" / "guide.pdf")
+OUT  = str(BASE / "assets" / "guide.pdf")
+os.makedirs(str(BASE / "assets"), exist_ok=True)
 
-os.makedirs(A, exist_ok=True)
-
-# ── Палитра ──────────────────────────────────────────────────────────────────
-BG   = (10,  10,  20)    # почти чёрный
-BG2  = (18,  18,  35)    # тёмно-синий
-BG3  = (30,  28,  58)    # карточка
-GOLD = (212, 175,  55)   # золото
-GLD2 = (240, 210,  90)   # золото светлое
-W    = (255, 255, 255)   # белый
-G1   = (205, 205, 225)   # основной текст
-G2   = (145, 140, 170)   # второстепенный
-G3   = ( 40,  38,  72)   # разделители
-GR   = ( 52, 211, 120)   # зелёный
-RS   = (230,  90, 100)   # красный
-BL   = ( 90, 160, 240)   # синий
-AM   = (251, 191,  36)   # янтарный
+# ── Палитра (как в offer_card.py) ────────────────────────────────────────────
+DARK   = (16,  13,   8)
+DARK2  = (28,  23,  13)
+DARK3  = (42,  36,  20)
+DLINE  = (55,  48,  28)
+GOLD   = (196, 148,  58)
+GOLD_L = (230, 185,  90)
+GOLD_D = (120,  88,  24)
+WHITE  = (255, 255, 255)
+OFFWH  = (232, 226, 208)
+LGRAY  = (155, 145, 118)
+GREEN  = (82,  180,  90)
+RED    = (190,  75,  65)
 
 
 class PDF(FPDF):
 
-    def f(self, sz=11, b=False, c=W):
+    # ── Шрифт ────────────────────────────────────────────────────────────────
+    def f(self, sz=11, b=False, c=WHITE):
         self.set_font("R", "B" if b else "", sz)
         self.set_text_color(*c)
 
+    # ── Примитивы ────────────────────────────────────────────────────────────
     def box(self, x, y, w, h, c):
         self.set_fill_color(*c)
         self.rect(x, y, w, h, "F")
 
-    def hl(self, y, c=G3, lw=0.3):
+    def line_h(self, y, c=DLINE, lw=0.25):
         self.set_draw_color(*c)
         self.set_line_width(lw)
         self.line(0, y, 210, y)
 
-    def vl(self, x, y1, y2, c=G3, lw=0.3):
+    def line_v(self, x, y1, y2, c=DLINE, lw=0.25):
         self.set_draw_color(*c)
         self.set_line_width(lw)
         self.line(x, y1, x, y2)
 
     def dot(self, x, y, r, c):
         self.set_fill_color(*c)
-        self.ellipse(x-r, y-r, r*2, r*2, "F")
+        self.ellipse(x - r, y - r, r * 2, r * 2, "F")
 
-    def badge(self, x, y, text, bg=GOLD, tc=BG, sz=7.5):
-        self.f(sz, True, tc)
-        w = self.get_string_width(text) + 10
-        self.box(x, y, w, 8, bg)
-        self.set_xy(x, y + 1)
-        self.cell(w, 6, text, align="C")
-        return w
+    def circle_out(self, cx, cy, r, c, lw=0.2):
+        self.set_draw_color(*c)
+        self.set_line_width(lw)
+        self.ellipse(cx - r, cy - r, r * 2, r * 2, "D")
 
-    def gold_bar(self):
-        """Вертикальная золотая полоса слева."""
-        for i in range(5):
-            shade = tuple(max(0, c - i * 8) for c in GOLD)
-            self.box(i, 0, 1, 297, shade)
+    def diamond(self, cx, cy, s, c, lw=0.3):
+        self.set_draw_color(*c)
+        self.set_line_width(lw)
+        # FPDF не имеет polygon — рисуем 4 линии
+        self.line(cx,     cy - s, cx + s, cy    )
+        self.line(cx + s, cy,     cx,     cy + s)
+        self.line(cx,     cy + s, cx - s, cy    )
+        self.line(cx - s, cy,     cx,     cy - s)
 
-    def section_mark(self, num, title):
+    def gold_check(self, x, y, r=2.8):
+        """Золотой круг с галочкой."""
+        self.set_draw_color(*GOLD)
+        self.set_line_width(0.4)
+        self.ellipse(x - r, y - r, r * 2, r * 2, "D")
+        self.set_draw_color(*GOLD)
+        self.set_line_width(0.5)
+        self.line(x - 1.2, y + 0.2, x - 0.2, y + 1.4)
+        self.line(x - 0.2, y + 1.4, x + 1.8,  y - 1.0)
+
+    # ── Базовый фон страницы ─────────────────────────────────────────────────
+    def page_bg(self):
+        """Тёмный фон + точечный паттерн + золотые полосы."""
+        # Фон
+        self.box(0, 0, 210, 297, DARK)
+        # Точки (сетка 8мм)
+        self.set_fill_color(42, 36, 18)
+        step = 8
+        for gx in range(0, 220, step):
+            for gy in range(0, 305, step):
+                self.ellipse(gx - 0.4, gy - 0.4, 0.8, 0.8, "F")
+        # Золотая полоса сверху
+        self.box(0, 0, 210, 1.2, GOLD)
+        # Золотая полоса слева
+        for xi in range(4):
+            alpha = 1 - xi * 0.25
+            c = tuple(int(GOLD[j] * alpha) for j in range(3))
+            self.set_fill_color(*c)
+            self.rect(xi * 0.4, 0, 0.4, 297, "F")
+
+    def deco_rings(self, cx, cy, rings=(30, 22, 15, 9)):
+        """Концентрические кольца как в offer_card."""
+        shades = [(38, 32, 16), (48, 42, 20), (58, 50, 24), GOLD_D]
+        for r, sh in zip(rings, shades):
+            self.circle_out(cx, cy, r, sh, lw=0.2)
+
+    def deco_diamond(self, cx, cy):
+        """Трёхслойный ромб."""
+        self.diamond(cx, cy, 12, DARK3, lw=0.3)
+        self.diamond(cx, cy,  8, DLINE, lw=0.3)
+        self.diamond(cx, cy,  4, GOLD_D, lw=0.4)
+
+    def section_label(self, num, title):
         self.f(7, True, GOLD)
-        self.set_xy(20, 16)
-        self.cell(0, 5, f"0{num}  /  {title.upper()}")
-        self.hl(24, G3)
+        self.set_xy(18, 15)
+        self.cell(0, 5, f"{num:02d}  /  {title.upper()}")
+        self.line_h(22, DLINE)
 
-    def page_base(self, dark=True):
-        self.box(0, 0, 210, 297, BG if dark else BG2)
-        self.gold_bar()
-        # Верхняя тонкая линия
-        self.box(5, 0, 205, 2, GOLD)
+    def feat_item(self, x, y, text, w=80):
+        """Блок фичи с золотым чеком."""
+        # фон блока
+        self.set_fill_color(*DARK2)
+        self.rect(x - 2, y - 1.5, w, 10, "F")
+        self.set_fill_color(*GOLD_D)
+        self.rect(x - 2, y - 1.5, 1.2, 10, "F")
+        self.gold_check(x + 4, y + 3.3)
+        self.f(9, False, OFFWH)
+        self.set_xy(x + 9, y)
+        self.multi_cell(w - 11, 5, text)
 
-    # ─── ОБЛОЖКА ────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
+    # ОБЛОЖКА
+    # ─────────────────────────────────────────────────────────────────────────
     def cover(self):
-        self.box(0, 0, 210, 297, BG)
-        self.gold_bar()
-        self.box(5, 0, 205, 3, GOLD)
+        self.page_bg()
 
-        # Правый декоративный блок
-        self.box(145, 0, 65, 297, BG2)
-        self.box(145, 0, 1, 297, G3)
+        # Декор: кольца левый низ
+        self.deco_rings(0, 297, rings=(55, 40, 28, 16))
+        # Декор: ромб правый верх
+        self.deco_diamond(198, 12)
+        # Ещё один ромб меньше
+        self.diamond(185, 22, 6, DARK3, lw=0.2)
 
-        # Тег
-        self.badge(20, 26, "  БЕСПЛАТНЫЙ ГИД  ", GOLD, BG, 8)
+        # Бейдж
+        self.f(8, True, GOLD)
+        self.set_xy(18, 26)
+        self.cell(0, 5, "БЕСПЛАТНЫЙ ГИД")
+        self.set_fill_color(*GOLD_D)
+        self.rect(18, 32, 55, 0.6, "F")
 
         # Заголовок
-        self.f(46, True, W)
-        self.set_xy(20, 46)
-        self.multi_cell(120, 18, "Сайт\nили бот?", "L")
+        self.f(42, True, WHITE)
+        self.set_xy(18, 38)
+        self.multi_cell(120, 17, "Сайт\nили бот?", "L")
 
-        # Золотая акцентная линия
-        self.box(20, 124, 70, 3, GOLD)
+        # Золотая подчёркивающая линия
+        self.box(18, 88, 65, 1.5, GOLD)
 
-        self.f(12, False, G2)
-        self.set_xy(20, 134)
-        self.multi_cell(120, 7,
+        self.f(11, False, LGRAY)
+        self.set_xy(18, 95)
+        self.multi_cell(120, 6.5,
             "Как выбрать правильный инструмент\n"
             "и не потратить деньги впустую", "L")
 
         # Буллеты
-        items = [
-            (GR,   "Сравнение 3 инструментов"),
-            (GOLD, "3 реальных кейса с цифрами"),
-            (BL,   "Алгоритм выбора за 5 шагов"),
+        feats = [
+            "Сравнение 3 инструментов",
+            "3 реальных кейса с цифрами",
+            "Алгоритм выбора за 5 шагов",
+            "Частые ошибки и как их избежать",
         ]
-        for i, (c, t) in enumerate(items):
-            y = 170 + i * 15
-            self.dot(24, y + 4, 3.5, c)
-            self.f(11, True, W)
-            self.set_xy(32, y + 0.5)
+        y = 120
+        for t in feats:
+            self.gold_check(22, y + 3)
+            self.f(10, False, OFFWH)
+            self.set_xy(28, y - 0.5)
             self.cell(100, 7, t)
+            y += 13
 
-        # ── Правая панель ──
-        # Большая цифра
-        self.f(70, True, G3)
-        self.set_xy(142, 52)
-        self.cell(62, 52, "73", align="C")
+        # Вертикальный разделитель
+        self.line_v(145, 25, 265, DLINE)
+        self.line_v(146, 25, 265, GOLD_D)
+
+        # Правая панель: большая цифра
+        self.f(68, True, DARK3)
+        self.set_xy(148, 38)
+        self.cell(58, 48, "73", align="C")
 
         self.f(26, True, GOLD)
-        self.set_xy(142, 102)
-        self.cell(62, 18, "%", align="C")
+        self.set_xy(148, 82)
+        self.cell(58, 16, "%", align="C")
 
-        self.f(8.5, False, G2)
-        self.set_xy(142, 122)
-        self.multi_cell(62, 5.5, "бизнесов выбирают\nне тот инструмент", align="C")
+        self.f(8, False, LGRAY)
+        self.set_xy(148, 100)
+        self.multi_cell(58, 5, "бизнесов выбирают\nне тот инструмент", align="C")
 
         # Три мини-блока
         facts = [
-            (GR,   "60–80%", "открываемость\nTelegram push"),
-            (GOLD, "3x",     "дешевле лид\nс лендинга vs сайт"),
-            (AM,   "7 дней", "средний срок\nзапуска бота"),
+            (GOLD,  "60-80%", "открываемость\nTelegram"),
+            (GREEN, "3x",     "дешевле лид\nс лендинга"),
+            ((90, 160, 220), "7 дней", "средний срок\nзапуска бота"),
         ]
         for i, (c, n, l) in enumerate(facts):
-            y = 165 + i * 35
-            self.box(147, y, 56, 31, BG3)
-            self.box(147, y, 56, 2.5, c)
+            fy = 128 + i * 36
+            self.box(148, fy, 57, 32, DARK2)
+            self.box(148, fy, 57, 1.5, c)
             self.f(18, True, c)
-            self.set_xy(147, y + 5)
-            self.cell(56, 12, n, align="C")
-            self.f(7.5, False, G2)
-            self.set_xy(147, y + 18)
-            self.multi_cell(56, 4.5, l, align="C")
+            self.set_xy(148, fy + 3)
+            self.cell(57, 12, n, align="C")
+            self.f(7.5, False, LGRAY)
+            self.set_xy(148, fy + 16)
+            self.multi_cell(57, 4.5, l, align="C")
 
-        # Футер
-        self.box(0, 276, 210, 21, BG2)
-        self.hl(276, GOLD, 0.4)
-        self.f(8, False, G2)
-        self.set_xy(20, 284)
-        self.cell(85, 5, "6 страниц  •  12 минут  •  Бесплатно")
-        self.set_xy(105, 284)
-        self.cell(85, 5, "Сайты  •  Боты  •  Под ключ", align="R")
+        # Нижняя плашка
+        self.box(0, 267, 210, 30, DARK2)
+        self.box(0, 267, 210, 1.5, GOLD)
+        self.f(8, False, LGRAY)
+        self.set_xy(0, 276)
+        self.cell(210, 6,
+            "6 страниц  •  12 минут  •  Бесплатно  •  Сайты и Telegram-боты",
+            align="C")
 
-    # ─── СТРАНИЦА 2: ПРОБЛЕМА ─────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
+    # СТРАНИЦА 2: ПРОБЛЕМА
+    # ─────────────────────────────────────────────────────────────────────────
     def p_problem(self):
-        self.page_base()
-        self.section_mark(1, "Почему это важно")
+        self.page_bg()
+        self.deco_rings(210, 0, rings=(40, 28, 18))
+        self.deco_diamond(18, 285)
+        self.section_label(1, "Почему это важно")
 
-        self.f(30, True, W)
-        self.set_xy(20, 32)
-        self.multi_cell(170, 13, "Почему большинство\nтратит деньги зря", "L")
+        self.f(28, True, WHITE)
+        self.set_xy(18, 28)
+        self.multi_cell(174, 12, "Почему большинство\nтратит деньги зря", "L")
 
-        self.f(11, False, G1)
-        self.set_xy(20, 74)
-        self.multi_cell(170, 6.5,
+        self.f(10, False, OFFWH)
+        self.set_xy(18, 66)
+        self.multi_cell(174, 6,
             "Каждый день ко мне приходят предприниматели с похожей историей. "
             "Потратили 80 000 рублей на сайт — заявок нет. "
             "Сделали лендинг — а клиенты сидят в Telegram. "
             "Заказали бот — а нужен был нормальный сайт с SEO.\n\n"
-            "Причина одна: инструмент выбирается по совету знакомых "
-            "или по красивому портфолио подрядчика — а не по задаче.", "L")
+            "Причина одна: инструмент выбирается по совету знакомых, "
+            "а не по реальной задаче.", "L")
 
         # Три статистики
         stats = [
-            (GOLD, "73%",  "выбирают\nне тот инструмент"),
-            (RS,   "2.4x", "дороже обходится\nпеределка"),
-            (GR,   "87 дн","теряют в среднем\nна ошибочный путь"),
+            (GOLD,  "73%",   "выбирают\nне тот инструмент"),
+            (RED,   "2.4x",  "дороже обходится\nпеределка"),
+            (GREEN, "87 дн", "теряют в среднем\nна ошибочный путь"),
         ]
         for i, (c, n, l) in enumerate(stats):
-            x = 20 + i * 63
-            self.box(x, 134, 58, 54, BG3)
-            self.box(x, 134, 58, 3, c)
-            self.f(28, True, c)
-            self.set_xy(x, 140)
-            self.cell(58, 18, n, align="C")
-            self.f(8.5, False, G2)
-            self.set_xy(x, 161)
-            self.multi_cell(58, 5.5, l, align="C")
+            x = 18 + i * 62
+            self.box(x, 122, 58, 52, DARK2)
+            self.box(x, 122, 58, 2, c)
+            self.f(26, True, c)
+            self.set_xy(x, 126)
+            self.cell(58, 16, n, align="C")
+            self.f(8, False, LGRAY)
+            self.set_xy(x, 145)
+            self.multi_cell(58, 5, l, align="C")
 
         # Цитата
-        self.box(20, 200, 170, 34, BG3)
-        self.box(20, 200, 4, 34, GOLD)
-        self.f(12, True, W)
-        self.set_xy(30, 207)
-        self.multi_cell(155, 7,
+        self.box(18, 184, 174, 30, DARK2)
+        self.box(18, 184, 3, 30, GOLD)
+        self.f(11, True, WHITE)
+        self.set_xy(26, 190)
+        self.multi_cell(162, 7,
             "«Правильный инструмент — это половина успеха.\n"
             "Этот гайд поможет выбрать его за 12 минут.»")
 
-        # Ошибки
-        self.f(10, True, W)
-        self.set_xy(20, 244); self.cell(0, 7, "Типичные ошибки:")
+        self.f(10, True, WHITE)
+        self.set_xy(18, 225); self.cell(0, 7, "Типичные ошибки:")
+
         errs = [
             "Сделали многостраничный сайт — а нужен был лендинг под рекламу",
             "Заказали лендинг — а 80% клиентов приходят через Telegram",
-            "Потратили 100 000 руб. на сайт — а бот за 20 000 руб. дал бы больше",
+            "Потратили 100 000 руб. на сайт — а бот за 20 000 дал бы больше",
         ]
         for i, e in enumerate(errs):
-            y = 256 + i * 13
-            self.dot(24, y + 3.5, 2.5, RS)
-            self.f(9.5, False, G1)
-            self.set_xy(31, y)
-            self.multi_cell(158, 6, e)
+            self.feat_item(18, 236 + i * 13, e, w=174)
 
-    # ─── СТРАНИЦА 3: СРАВНЕНИЕ ────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
+    # СТРАНИЦА 3: СРАВНЕНИЕ
+    # ─────────────────────────────────────────────────────────────────────────
     def p_compare(self):
-        self.page_base()
-        self.section_mark(2, "Сравнение инструментов")
+        self.page_bg()
+        self.deco_rings(0, 297, rings=(45, 32, 20))
+        self.deco_diamond(198, 285)
+        self.section_label(2, "Сравнение инструментов")
 
-        self.f(30, True, W)
-        self.set_xy(20, 32)
-        self.multi_cell(170, 13, "Три инструмента —\nтри разные задачи", "L")
+        self.f(28, True, WHITE)
+        self.set_xy(18, 28)
+        self.multi_cell(174, 12, "Три инструмента —\nтри разные задачи", "L")
 
         tools = [
-            (GOLD, "Telegram-бот",  "от 20 000 руб.", "3–7 дней",
+            (GOLD,  "Telegram-бот", "от 20 000 руб.", "3-7 дней",
              "Автоматизация\nи повторный контакт",
              ["Работает 24/7 без менеджера",
-              "Push открывают 60–80%",
+              "Push открывают 60-80%",
               "Воронка, запись, рассылки",
-              "Повторный контакт бесплатно",
-              "Запуск от 3 дней"]),
-            (GR,   "Лендинг",       "от 25 000 руб.", "5–10 дней",
+              "Повторный контакт бесплатно"]),
+            (GREEN, "Лендинг", "от 25 000 руб.", "5-10 дней",
              "Конверсия\nрекламного трафика",
              ["Максимум конверсии с рекламы",
               "Один оффер — фокус",
-              "A/B-тест за неделю",
               "Быстрый запуск и окупаемость",
-              "Легко масштабировать"]),
-            (BL,   "Сайт",          "от 40 000 руб.", "10–14 дней",
+              "A/B-тест за неделю"]),
+            ((90, 160, 220), "Сайт", "от 40 000 руб.", "10-14 дней",
              "SEO и долгосрочный\nактив бизнеса",
              ["SEO-трафик без рекламы",
               "Каталог и портфолио",
               "Доверие и репутация",
-              "Работает годами",
-              "Разные страницы под сегменты"]),
+              "Работает годами"]),
         ]
 
         for i, (c, name, price, term, desc, pts) in enumerate(tools):
             x = 14 + i * 65
             y = 82
-            self.box(x, y, 62, 175, BG3)
-            self.box(x, y, 62, 4, c)
-            self.box(x, y, 62, 30, BG2)
-            self.box(x, y + 26, 62, 2, G3)
+            self.box(x, y, 62, 178, DARK2)
+            self.box(x, y, 62, 2.5, c)
 
-            self.f(12, True, c)
-            self.set_xy(x + 4, y + 8)
-            self.cell(54, 8, name)
+            self.f(11, True, c)
+            self.set_xy(x + 3, y + 6)
+            self.cell(56, 8, name)
 
-            self.f(8, False, G2)
-            self.set_xy(x + 4, y + 18)
-            self.multi_cell(54, 5, desc)
+            self.f(7.5, False, LGRAY)
+            self.set_xy(x + 3, y + 16)
+            self.multi_cell(56, 4.5, desc)
 
-            self.hl(y + 36, G3, 0.2)
-            self.f(7, False, G2)
-            self.set_xy(x + 4, y + 38); self.cell(28, 5, "СТОИМОСТЬ")
-            self.set_xy(x + 32, y + 38); self.cell(26, 5, "СРОК", align="R")
-            self.f(10, True, W)
-            self.set_xy(x + 4, y + 44); self.cell(28, 8, price)
+            self.line_h(y + 30, DLINE)
+            self.f(7, False, LGRAY)
+            self.set_xy(x + 3, y + 33); self.cell(28, 4, "СТОИМОСТЬ")
+            self.set_xy(x + 31, y + 33); self.cell(27, 4, "СРОК", align="R")
+            self.f(10, True, WHITE)
+            self.set_xy(x + 3, y + 38); self.cell(28, 7, price)
             self.f(10, True, c)
-            self.set_xy(x + 32, y + 44); self.cell(26, 8, term, align="R")
+            self.set_xy(x + 31, y + 38); self.cell(27, 7, term, align="R")
 
-            self.hl(y + 56, G3, 0.2)
-            self.f(8.5, False, G1)
+            self.line_h(y + 50, DLINE)
             for j, pt in enumerate(pts):
-                yp = y + 62 + j * 20
-                self.dot(x + 8, yp + 4.5, 2.5, c)
-                self.set_xy(x + 14, yp)
-                self.multi_cell(46, 5.5, pt)
+                py = y + 54 + j * 28
+                self.feat_item(x + 3, py, pt, w=57)
 
         # Лайфхак
-        self.box(14, 266, 182, 20, BG3)
-        self.box(14, 266, 4, 20, GR)
-        self.f(9, True, GR)
-        self.set_xy(24, 270); self.cell(30, 6, "Лайфхак:")
-        self.f(9, False, G1)
-        self.set_xy(24, 278)
-        self.cell(164, 6, "Лендинг + Telegram-бот при меньшем бюджете бьют дорогой сайт по конверсии")
+        self.box(14, 268, 182, 16, DARK2)
+        self.box(14, 268, 3, 16, GREEN)
+        self.f(9, True, GREEN); self.set_xy(22, 271); self.cell(28, 6, "Лайфхак:")
+        self.f(9, False, OFFWH); self.set_xy(52, 271)
+        self.cell(140, 6, "Лендинг + Telegram-бот при меньшем бюджете дают больше конверсий")
 
-    # ─── СТРАНИЦА 4: КЕЙСЫ ───────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
+    # СТРАНИЦА 4: КЕЙСЫ
+    # ─────────────────────────────────────────────────────────────────────────
     def p_cases(self):
-        self.page_base()
-        self.section_mark(3, "Реальные кейсы")
+        self.page_bg()
+        self.deco_rings(210, 297, rings=(40, 28, 18))
+        self.deco_diamond(18, 12)
+        self.section_label(3, "Реальные кейсы")
 
-        self.f(30, True, W)
-        self.set_xy(20, 32)
-        self.multi_cell(170, 13, "Результаты клиентов\nв цифрах", "L")
+        self.f(28, True, WHITE)
+        self.set_xy(18, 28)
+        self.multi_cell(174, 12, "Результаты клиентов\nв цифрах", "L")
 
         cases = [
-            (GOLD, "Telegram-бот", "Производство мебельных фасадов",
+            (GOLD,  "Telegram-бот", "Производство мебельных фасадов",
              "Менеджер вручную обрабатывал заявки — полдня уходило на переписку.",
-             [("Заявок/мес",  "18 → 67",   GR, "+272%"),
-              ("Время ответа","4ч → 2мин", GR, "-97%"),
-              ("Конверсия",   "2.1 → 8.4%",GR, "+300%")]),
-            (GR,   "Лендинг",    "Юридические услуги онлайн",
+             [("Заявок/мес",   "18 > 67",    GREEN, "+272%"),
+              ("Время ответа", "4ч > 2мин",  GREEN, "-97%"),
+              ("Конверсия",    "2.1 > 8.4%", GREEN, "+300%")]),
+            (GREEN, "Лендинг", "Юридические услуги онлайн",
              "Старый сайт давал дорогой трафик с конверсией 1.2%. Лид — 3200 руб.",
-             [("Стоимость лида","3200→890р.", GR, "-72%"),
-              ("Конверсия",    "1.2→4.8%",   GR, "+300%"),
-              ("Окупился за",  "18 дней",    GR, "ROI 840%")]),
-            (BL,   "Сайт + Бот", "Строительная компания",
+             [("Стоимость лида", "3200>890р.", GREEN, "-72%"),
+              ("Конверсия",      "1.2>4.8%",  GREEN, "+300%"),
+              ("Окупился за",    "18 дней",   GREEN, "ROI 840%")]),
+            ((90, 160, 220), "Сайт + Бот", "Строительная компания",
              "Работали только по сарафану. Не было онлайн-присутствия совсем.",
-             [("Новых клиентов","+14/мес",  GR, "с нуля"),
-              ("Средний чек",   "+42%",     GR, "доверие"),
-              ("ROI за год",    "1840%",    GR, "окупился")]),
+             [("Новых клиентов", "+14/мес", GREEN, "с нуля"),
+              ("Средний чек",    "+42%",    GREEN, "доверие"),
+              ("ROI за год",     "1840%",   GREEN, "окупился")]),
         ]
 
         for i, (c, tool, niche, problem, results) in enumerate(cases):
-            y = 84 + i * 66
-            self.box(14, y, 182, 60, BG3)
-            self.box(14, y, 4, 60, c)
+            y = 82 + i * 65
+            self.box(14, y, 182, 58, DARK2)
+            self.box(14, y, 3, 58, c)
 
-            self.badge(22, y + 7, f"  {tool}  ", c, BG, 8)
-            self.f(11, True, W)
-            self.set_xy(22, y + 20); self.cell(90, 7, niche)
+            # Бейдж
+            self.f(7.5, True, DARK)
+            bw = self.get_string_width(tool) + 8
+            self.set_fill_color(*c)
+            self.rect(20, y + 5, bw, 7, "F")
+            self.set_xy(20, y + 5.5)
+            self.cell(bw, 6, tool, align="C")
 
-            self.f(8.5, False, G2)
-            self.set_xy(22, y + 30)
-            self.multi_cell(85, 5, problem)
+            self.f(10, True, WHITE)
+            self.set_xy(20, y + 16); self.cell(85, 7, niche)
+            self.f(8, False, LGRAY)
+            self.set_xy(20, y + 25)
+            self.multi_cell(72, 5, problem)
 
-            self.vl(115, y + 4, y + 56, G3)
-
+            # Результаты
+            self.line_v(100, y + 5, y + 53, DLINE)
             for j, (label, val, vc, extra) in enumerate(results):
-                x = 120 + j * 26
-                self.f(7, False, G2)
-                self.set_xy(x, y + 8); self.cell(24, 5, label, align="C")
-                self.f(10, True, vc)
-                self.set_xy(x, y + 14); self.cell(24, 8, val, align="C")
+                rx = 106 + j * 30
+                self.f(7, False, LGRAY)
+                self.set_xy(rx, y + 6); self.cell(28, 5, label, align="C")
+                self.f(9, True, vc)
+                self.set_xy(rx, y + 12); self.cell(28, 7, val, align="C")
                 self.f(7.5, True, c)
-                self.set_xy(x, y + 24); self.cell(24, 5, extra, align="C")
+                self.set_xy(rx, y + 20); self.cell(28, 5, extra, align="C")
 
-    # ─── СТРАНИЦА 5: АЛГОРИТМ ────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
+    # СТРАНИЦА 5: АЛГОРИТМ
+    # ─────────────────────────────────────────────────────────────────────────
     def p_algo(self):
-        self.page_base()
-        self.section_mark(4, "Алгоритм выбора")
+        self.page_bg()
+        self.deco_rings(0, 0, rings=(45, 32, 20))
+        self.deco_diamond(198, 12)
+        self.section_label(4, "Алгоритм выбора")
 
-        self.f(30, True, W)
-        self.set_xy(20, 32)
-        self.multi_cell(170, 13, "5 вопросов — и ответ\nстанет очевидным", "L")
+        self.f(28, True, WHITE)
+        self.set_xy(18, 28)
+        self.multi_cell(174, 12, "5 вопросов — и ответ\nстанет очевидным", "L")
 
         qs = [
-            (GOLD, "Откуда клиенты?",
-             "Таргет / контекст → ",  GR,   "Лендинг",
-             "Telegram / органика → ", GOLD, "Бот"),
-            (GR,   "Нужна автоматизация?",
-             "Да, без менеджера → ",  GOLD, "Бот",
-             "Нет, просто заявка → ", GR,   "Лендинг"),
-            (BL,   "Один оффер или каталог?",
-             "Один продукт / услуга →", GR, "Лендинг",
-             "Много услуг / товаров →", BL,  "Сайт"),
-            (AM,   "Повторный контакт без рекламы?",
-             "Да, нужны рассылки → ",  GOLD, "Бот",
-             "Нет, ретаргет → ",       GR,   "Лендинг"),
-            (G1,   "Бюджет и срок?",
-             "До 30 000 руб / быстро →", GOLD, "Бот или лендинг",
-             "Есть ресурс → ",           BL,   "Сайт"),
+            (GOLD,  "Откуда приходят клиенты?",
+             "Таргет / контекст ->", GREEN, "Лендинг",
+             "Telegram / органика ->", GOLD, "Бот"),
+            (GREEN, "Нужна автоматизация?",
+             "Да, без менеджера ->", GOLD, "Бот",
+             "Нет, просто заявка ->", GREEN, "Лендинг"),
+            ((90,160,220), "Один оффер или каталог?",
+             "Один продукт / услуга ->", GREEN, "Лендинг",
+             "Много услуг / товаров ->", (90,160,220), "Сайт"),
+            (GOLD,  "Нужен повторный контакт бесплатно?",
+             "Да, нужны рассылки ->", GOLD, "Бот",
+             "Нет, ретаргет ->", GREEN, "Лендинг"),
+            (GREEN, "Какой бюджет и срок?",
+             "До 30 000 руб / срочно ->", GOLD, "Бот или лендинг",
+             "Есть ресурс ->", (90,160,220), "Сайт"),
         ]
 
         for i, (c, q, a1, c1, r1, a2, c2, r2) in enumerate(qs):
-            y = 86 + i * 40
-            self.box(14, y, 182, 35, BG3)
-            self.box(14, y, 4, 35, c)
+            y = 82 + i * 40
+            self.box(14, y, 182, 34, DARK2)
+            self.box(14, y, 3, 34, c)
 
             # Номер
-            self.f(22, True, G3)
-            self.set_xy(16, y + 4); self.cell(14, 14, str(i + 1), align="C")
+            self.f(20, True, DARK3)
+            self.set_xy(16, y + 3); self.cell(14, 14, str(i + 1), align="C")
 
-            # Вопрос
-            self.f(11, True, W)
-            self.set_xy(34, y + 8); self.cell(150, 8, q)
+            self.f(10, True, WHITE)
+            self.set_xy(34, y + 7); self.cell(150, 7, q)
 
-            # Ответы
-            self.dot(34, y + 24, 2.5, GR)
-            self.f(9, False, G1)
-            self.set_xy(40, y + 20); self.cell(55, 7, a1)
-            self.f(9, True, c1)
-            self.set_xy(97, y + 20); self.cell(40, 7, r1)
+            self.dot(34, y + 21, 1.8, GREEN)
+            self.f(8.5, False, OFFWH); self.set_xy(38, y + 18); self.cell(55, 6, a1)
+            self.f(8.5, True, c1);     self.set_xy(95, y + 18); self.cell(40, 6, r1)
 
-            self.dot(34, y + 31, 2.5, RS)
-            self.f(9, False, G1)
-            self.set_xy(40, y + 27); self.cell(55, 7, a2)
-            self.f(9, True, c2)
-            self.set_xy(97, y + 27); self.cell(40, 7, r2)
+            self.dot(34, y + 29, 1.8, RED)
+            self.f(8.5, False, OFFWH); self.set_xy(38, y + 26); self.cell(55, 6, a2)
+            self.f(8.5, True, c2);     self.set_xy(95, y + 26); self.cell(40, 6, r2)
 
-    # ─── СТРАНИЦА 6: CTA ─────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
+    # СТРАНИЦА 6: CTA
+    # ─────────────────────────────────────────────────────────────────────────
     def p_cta(self):
-        self.page_base(dark=True)
+        self.page_bg()
+        self.deco_rings(210, 297, rings=(55, 40, 28, 16))
+        self.deco_diamond(198, 12)
+        self.diamond(185, 22, 6, DARK3)
 
         # Акцентный блок сверху
-        self.box(5, 4, 205, 115, BG2)
-        self.box(5, 4, 205, 3, GOLD)
+        self.box(5, 4, 205, 112, DARK2)
+        self.box(5, 4, 205, 1.5, GOLD)
 
-        self.f(7, True, GOLD)
-        self.set_xy(20, 18); self.cell(0, 5, "СЛЕДУЮЩИЙ ШАГ")
+        self.f(7, True, GOLD); self.set_xy(18, 15); self.cell(0, 5, "СЛЕДУЮЩИЙ ШАГ")
 
-        self.f(34, True, W)
-        self.set_xy(20, 30)
-        self.multi_cell(170, 14, "Обсудим ваш\nпроект?", "C")
+        self.f(32, True, WHITE)
+        self.set_xy(18, 26)
+        self.multi_cell(174, 13, "Обсудим ваш\nпроект?", "C")
 
-        self.f(12, False, G2)
-        self.set_xy(20, 82)
-        self.multi_cell(170, 7,
+        self.f(11, False, LGRAY)
+        self.set_xy(18, 78)
+        self.multi_cell(174, 6.5,
             "Бесплатный 20-минутный разбор.\n"
             "Покажу примеры — назову цену и срок.", "C")
 
         # Кнопка
-        self.box(60, 110, 90, 15, GOLD)
-        self.f(11.5, True, BG)
-        self.set_xy(60, 111); self.cell(90, 13, "Записаться →", align="C")
+        self.set_fill_color(*GOLD)
+        self.rect(65, 106, 80, 13, "F")
+        self.f(11, True, DARK); self.set_xy(65, 107); self.cell(80, 11, "Записаться ->", align="C")
 
         # Три обещания
-        promises = [(GR, "Бесплатно"), (GOLD, "Без давления"), (BL, "Конкретный план")]
+        promises = [(GREEN, "Бесплатно"), (GOLD, "Без давления"), ((90,160,220), "Конкретный план")]
         for i, (c, t) in enumerate(promises):
-            x = 20 + i * 60
-            self.dot(x + 24, 143, 3.5, c)
-            self.f(9, True, c)
-            self.set_xy(x, 150); self.cell(48, 6, t, align="C")
+            x = 22 + i * 58
+            self.dot(x + 22, 133, 2.8, c)
+            self.f(8.5, True, c); self.set_xy(x, 138); self.cell(44, 5, t, align="C")
 
-        # Четыре цифры доверия
-        proof = [
-            (GOLD, "50+",  "проектов"),
-            (GR,   "7+",   "лет опыта"),
-            (BL,   "24ч",  "время ответа"),
-            (AM,   "100%", "гарантия"),
-        ]
+        # Четыре блока
+        proof = [(GOLD, "50+", "проектов"), (GREEN, "7+", "лет опыта"),
+                 ((90,160,220), "24ч", "ответ"),  (GOLD, "100%", "гарантия")]
         for i, (c, n, l) in enumerate(proof):
             x = 14 + i * 49
-            self.box(x, 164, 45, 40, BG3)
-            self.box(x, 164, 45, 3, c)
-            self.f(22, True, c)
-            self.set_xy(x, 169); self.cell(45, 14, n, align="C")
-            self.f(8, False, G2)
-            self.set_xy(x, 185); self.cell(45, 6, l, align="C")
+            self.box(x, 155, 45, 38, DARK2)
+            self.box(x, 155, 45, 2, c)
+            self.f(20, True, c); self.set_xy(x, 159); self.cell(45, 13, n, align="C")
+            self.f(7.5, False, LGRAY); self.set_xy(x, 174); self.cell(45, 5, l, align="C")
 
-        # Что делаю
-        self.f(10, True, W)
-        self.set_xy(20, 218); self.cell(0, 7, "Что делаю:")
+        # Список услуг
+        self.f(10, True, WHITE); self.set_xy(18, 205); self.cell(0, 7, "Что делаю:")
         skills = [
-            (GOLD, "Telegram-боты под ключ — воронки, рассылки, запись"),
-            (GR,   "Лендинги с высокой конверсией — от 5 дней"),
-            (BL,   "Многостраничные сайты — SEO, каталог, портфолио"),
+            (GOLD,          "Telegram-боты под ключ — воронки, рассылки, запись"),
+            (GREEN,         "Лендинги с высокой конверсией — от 5 дней"),
+            ((90,160,220),  "Многостраничные сайты — SEO, каталог, портфолио"),
         ]
         for i, (c, t) in enumerate(skills):
-            y = 230 + i * 13
-            self.dot(24, y + 3.5, 3, c)
-            self.f(10, False, G1)
-            self.set_xy(31, y); self.cell(158, 7, t)
+            y = 216 + i * 13
+            self.gold_check(22, y + 3)
+            self.f(9.5, False, OFFWH); self.set_xy(28, y); self.cell(170, 7, t)
 
-        # Футер
-        self.box(0, 272, 210, 25, BG2)
-        self.hl(272, GOLD, 0.4)
-        self.f(8, False, G2)
-        self.set_xy(0, 281)
+        # Нижняя плашка
+        self.box(0, 268, 210, 29, DARK2)
+        self.box(0, 268, 210, 1.5, GOLD)
+        self.f(8, False, LGRAY)
+        self.set_xy(0, 278)
         self.cell(210, 6,
             "Telegram-боты  |  Лендинги  |  Сайты  |  Разработка под ключ",
             align="C")
@@ -477,13 +532,11 @@ class PDF(FPDF):
 def make():
     font_r = str(BASE / "assets" / "Inter-Regular.ttf")
     font_b = str(BASE / "assets" / "Inter-Bold.ttf")
-
     if not Path(font_r).exists():
         font_r = str(BASE / "assets" / "Montserrat-Regular.ttf")
         font_b = str(BASE / "assets" / "Montserrat-Bold.ttf")
-
     if not Path(font_r).exists():
-        print("Шрифты не найдены, пропускаем генерацию PDF")
+        print("Шрифты не найдены")
         return
 
     pdf = PDF("P", "mm", "A4")
