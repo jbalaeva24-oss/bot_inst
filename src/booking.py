@@ -7,8 +7,6 @@ from aiogram.types import CallbackQuery, Message
 import config
 from src.states import F as Funnel
 from src.keyboards import kb, remove_keyboard
-from pathlib import Path
-from aiogram.types import FSInputFile
 from src.db import cancel_followup
 
 log = logging.getLogger(__name__)
@@ -90,25 +88,6 @@ async def booking_contact_received(message: Message, state: FSMContext) -> None:
     time_label = data.get("booking_time", "не указано")
 
     await cancel_followup(user.id)
-
-    # Отправляем гайд напрямую через bot
-    try:
-        if config.LEAD_MAGNET_FILE_ID:
-            await message.bot.send_document(
-                user.id,
-                config.LEAD_MAGNET_FILE_ID,
-                caption=config.LEAD_MAGNET_CAPTION
-            )
-        else:
-            path = Path(config.LEAD_MAGNET_PATH)
-            if path.exists():
-                await message.bot.send_document(
-                    user.id,
-                    FSInputFile(str(path)),
-                    caption=config.LEAD_MAGNET_CAPTION
-                )
-    except Exception as e:
-        log.warning("guide в booking: %s", e)
 
     # Подтверждение пользователю
     await message.answer(
