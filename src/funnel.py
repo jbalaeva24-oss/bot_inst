@@ -152,12 +152,12 @@ async def demo_sites(cb: CallbackQuery, state: FSMContext):
     from aiogram.types import InputMediaPhoto
     media = []
     for i, (name, caption) in enumerate(config.DEMO_SITES, 1):
-        path = Path(config.BASE_DIR / "assets" / f"site{i}.png")
+        path = next((Path(config.BASE_DIR / "assets" / f"site{i}{ext}") for ext in (".png", ".jpg", ".jpeg") if (config.BASE_DIR / "assets" / f"site{i}{ext}").exists()), None)
         file_id_key = f"DEMO_SITE{i}_FILE_ID"
         file_id = os.getenv(file_id_key, "")
         if file_id:
             photo = file_id
-        elif path.exists():
+        elif path and path.exists():
             photo = FSInputFile(str(path))
         else:
             continue
