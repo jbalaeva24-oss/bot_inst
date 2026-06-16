@@ -156,11 +156,20 @@ def _resize_for_tg(path: Path):
     try:
         from PIL import Image
         import io
-        MAX = 1280
+        W, H = 720, 1280
         img = Image.open(path).convert("RGB")
-        # только уменьшаем если слишком большое, не кропаем
-        if max(img.width, img.height) > MAX:
-            img.thumbnail((MAX, MAX), Image.LANCZOS)
+        # кроп по центру до 9:16
+        target_ratio = W / H
+        img_ratio = img.width / img.height
+        if img_ratio > target_ratio:
+            new_w = int(img.height * target_ratio)
+            left = (img.width - new_w) // 2
+            img = img.crop((left, 0, left + new_w, img.height))
+        else:
+            new_h = int(img.width / target_ratio)
+            top = (img.height - new_h) // 2
+            img = img.crop((0, top, img.width, top + new_h))
+        img = img.resize((W, H), Image.LANCZOS)
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=85)
         buf.seek(0)
