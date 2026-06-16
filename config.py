@@ -13,10 +13,8 @@ CRM_WEBHOOK_URL: str = os.getenv("CRM_WEBHOOK_URL", "")
 _data_dir = os.getenv("DATA_DIR", str(BASE_DIR / "data"))
 DB_PATH: str = str(Path(_data_dir) / "leads.db")
 
-LEAD_MAGNET_FILE_ID: str = os.getenv(
-    "LEAD_MAGNET_FILE_ID",
-    "BQACAgIAAxkDAAIBJ2oq4IYYxCNI_rMYvFQo1sq9JRArAAK3qQACgmVZSREZwaSHTogqPAQ"
-)
+# Оставляем пустым — бот будет отправлять файл с диска (новый PDF каждый деплой)
+LEAD_MAGNET_FILE_ID: str = os.getenv("LEAD_MAGNET_FILE_ID", "")
 LEAD_MAGNET_PATH: str = str(BASE_DIR / "assets" / "guide.pdf")
 LEAD_MAGNET_CAPTION: str = (
     "🎁 Держите гайд «Сайт или бот — как не ошибиться с выбором»\n\n"
