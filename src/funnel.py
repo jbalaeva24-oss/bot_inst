@@ -9,7 +9,7 @@
 import logging
 from pathlib import Path
 from aiogram import Router, F, Bot
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart, Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, FSInputFile, BufferedInputFile
 import tempfile, os
@@ -601,10 +601,10 @@ async def cmd_export(message: Message):
         os.unlink(path)
 
 
-@router.message(F.sticker)
-@admin_only
+@router.message(StateFilter("*"), F.sticker)
 async def get_sticker_id(message: Message):
-    await message.answer(f"Sticker file_id:\n<code>{message.sticker.file_id}</code>", parse_mode="HTML")
+    if message.from_user.id in config.ADMIN_IDS:
+        await message.answer(f"Sticker file_id:\n<code>{message.sticker.file_id}</code>", parse_mode="HTML")
 
 
 @router.message(Command("broadcast"))
