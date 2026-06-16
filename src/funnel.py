@@ -81,14 +81,14 @@ async def cmd_start(message: Message, state: FSMContext):
     await schedule_followups(user.id)
 
     await message.answer(
-        "Привет! 👋 v2\n\n"
-        "Я делаю Telegram-боты, лендинги и сайты под ключ.\n"
-        "Помогаю бизнесу получать больше клиентов.\n\n"
-        "Что вас интересует?",
+        "Привет! 👋\n\n"
+        "Я делаю сайты и Telegram-боты под ключ.\n"
+        "Помогаю бизнесу получать больше клиентов и заявок.\n\n"
+        "Чем могу помочь?",
         reply_markup=kb(
             ("💰 Сколько стоит?", "intent:price"),
-            ("📞 Давайте созвонимся", "intent:call"),
-            ("⏰ Пока изучаю варианты", "intent:explore"),
+            ("📞 Хочу созвониться", "intent:call"),
+            ("👀 Просто смотрю пока", "intent:explore"),
         )
     )
     await state.set_state(Funnel.intent)
@@ -96,18 +96,22 @@ async def cmd_start(message: Message, state: FSMContext):
 
 # ── БЛОК 2: ДЕМО ──────────────────────────────────────────────────────────────
 
+def _demo_kb():
+    return kb(
+        ("🌐 Сайт", "demo:sites"),
+        ("🤖 Telegram-бот", "demo:bot"),
+        ("📦 Сайт + бот", "demo:both"),
+    )
+
+
 @router.callback_query(Funnel.intent, F.data == "intent:price")
 async def intent_price(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     await state.update_data(intent="price")
     await edit_or_answer(cb,
-        "Отлично! Что вам нужно сделать?\n\n"
-        "Покажу живые примеры и назову точную цену 👇",
-        reply_markup=kb(
-            ("🌐 Сайт или лендинг", "demo:sites"),
-            ("🤖 Telegram-бот", "demo:bot"),
-            ("📦 Сайт + бот вместе", "demo:both"),
-        )
+        "Хорошо! Что нужно сделать?\n\n"
+        "Покажу примеры работ и назову точную цену 👇",
+        reply_markup=_demo_kb()
     )
 
 
@@ -116,14 +120,10 @@ async def intent_call(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     await state.update_data(intent="call")
     await edit_or_answer(cb,
-        "Отлично! Прежде чем созвониться — "
-        "покажу пару примеров работ, чтобы разговор был предметным.\n\n"
-        "Что делаем?",
-        reply_markup=kb(
-            ("🌐 Интересует сайт", "demo:sites"),
-            ("🤖 Интересует бот", "demo:bot"),
-            ("📦 Сайт + бот", "demo:both"),
-        )
+        "Отлично! Перед созвоном покажу примеры — "
+        "чтобы разговор сразу был предметным.\n\n"
+        "Что вас интересует?",
+        reply_markup=_demo_kb()
     )
 
 
@@ -132,15 +132,10 @@ async def intent_explore(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     await state.update_data(intent="explore")
     await edit_or_answer(cb,
-        "Понимаю, изучаете варианты 🤝\n\n"
-        "Чтобы не тратить ваше время — покажу конкретные примеры "
-        "с результатами. Займёт 2 минуты.\n\n"
+        "Понятно 🤝 Тогда покажу конкретные примеры с результатами — "
+        "займёт 2 минуты, зато сразу будет понятно, что и почём.\n\n"
         "Что ближе к вашей задаче?",
-        reply_markup=kb(
-            ("🌐 Сайт или лендинг", "demo:sites"),
-            ("🤖 Telegram-бот", "demo:bot"),
-            ("📦 Сайт + бот", "demo:both"),
-        )
+        reply_markup=_demo_kb()
     )
 
 
@@ -277,10 +272,10 @@ async def demo_both(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     await state.update_data(product="both")
     await edit_or_answer(cb,
-        "💡 Связка сайт + бот — это мощно!\n\n"
-        "Сайт привлекает трафик → бот автоматически обрабатывает заявки.\n"
-        "Такая связка обычно увеличивает конверсию в 2–3 раза.\n\n"
-        "Чтобы подобрать оптимальный вариант — пара вопросов.\n\n"
+        "💡 Сайт + бот — сильная связка.\n\n"
+        "Сайт привлекает трафик, бот сразу обрабатывает заявки и не даёт им остыть.\n"
+        "Конверсия у клиентов с такой связкой растёт в 2–3 раза.\n\n"
+        "Пара вопросов — чтобы подобрать оптимальный вариант:\n\n"
         "Сколько заявок получаете сейчас?",
         reply_markup=kb(
             ("📉 Меньше 10", "leads:low"),
@@ -469,7 +464,7 @@ async def offer_expensive(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     data = await state.get_data()
     product = data.get("product", "сайт")
-    prod_label = {"site": "сайт/лендинг", "bot": "бот", "both": "сайт + бот"}.get(product, "проект")
+    prod_label = {"site": "сайт", "bot": "бот", "both": "сайт + бот"}.get(product, "проект")
     await edit_or_answer(cb,
         f"Понимаю — давайте посчитаем окупаемость.\n\n"
         f"📊 Если {prod_label} принесёт всего <b>2 новых клиента в месяц</b>\n"

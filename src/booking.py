@@ -7,7 +7,7 @@ from aiogram.types import CallbackQuery, Message
 import config
 from src.states import F as Funnel
 from src.keyboards import kb, remove_keyboard
-from src.db import cancel_followup
+from src.db import cancel_followup, mark_lead_completed
 
 log = logging.getLogger(__name__)
 router = Router()
@@ -85,33 +85,44 @@ async def booking_contact_received(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     user = message.from_user
     contact = message.text.strip()
-    time_label = data.get("booking_time", "не указано")
 
+    # Валидация: должен быть @username, номер телефона или хотя бы 2 слова (имя + контакт)
+    if len(contact) < 5 or (not contact.startswith("@") and not any(c.isdigit() for c in contact) and len(contact.split()) < 2):
+        await message.answer(
+            "Пожалуйста, оставьте имя и @username или номер телефона.\n"
+            "Например: <b>Анна @anna_ivanova</b> или <b>Анна +79991234567</b>",
+            parse_mode="HTML",
+        )
+        return
+
+    time_label = data.get("booking_time", "не указано")
     await cancel_followup(user.id)
+    await mark_lead_completed(user.id)
 
     # Подтверждение пользователю
     await message.answer(
         "🎉 Заявка принята!\n\n"
         f"🕐 Время: <b>{time_label}</b>\n"
         f"📱 Контакт: <b>{contact}</b>\n\n"
-        "Напишу тебе лично в указанное время.\n"
-        "Если нужно раньше — просто напиши здесь 👇",
+        "Напишу вам лично в указанное время.\n"
+        "Если что-то срочно — просто напишите здесь 👇",
         parse_mode="HTML",
         reply_markup=remove_keyboard,
     )
 
     # Уведомление всем админам
     if config.ADMIN_IDS:
-        tg_link = f"@{user.username}" if user.username else f"tg://user?id={user.id}"
+        product_labels = {"site": "Сайт", "bot": "Бот", "both": "Сайт + бот"}
+        budget_labels = {"low": "до 30 000 ₽", "mid": "30–60 000 ₽", "high": "60 000+ ₽", "premium": "100 000+ ₽", "discuss": "обсудим"}
+        tg_link = f"@{user.username}" if user.username else f"<a href='tg://user?id={user.id}'>{user.full_name}</a>"
         admin_text = (
             "🔔 <b>Новая заявка на созвон!</b>\n\n"
-            f"👤 Имя: {user.full_name}\n"
-            f"🔗 Telegram: {tg_link}\n"
-            f"📱 Контакт: {contact}\n"
-            f"🕐 Удобное время: <b>{time_label}</b>\n\n"
-            f"📋 Что интересует: {data.get('product', '—')}\n"
-            f"💰 Бюджет: {data.get('budget', '—')}\n\n"
-            "👆 Напиши ему первым!"
+            f"👤 {user.full_name} {tg_link}\n"
+            f"📱 Контакт: <b>{contact}</b>\n"
+            f"🕐 Время: <b>{time_label}</b>\n\n"
+            f"📋 Интерес: {product_labels.get(data.get('product',''), '—')}\n"
+            f"💰 Бюджет: {budget_labels.get(data.get('budget',''), '—')}\n\n"
+            "👆 Напишите первым!"
         )
         for aid in config.ADMIN_IDS:
             try:

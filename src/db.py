@@ -39,7 +39,9 @@ FOLLOWUP_STEPS = [1, 24, 72]
 
 async def init_db():
     import os
-    os.makedirs(os.path.dirname(config.DB_PATH), exist_ok=True)
+    db_dir = os.path.dirname(config.DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     async with aiosqlite.connect(config.DB_PATH) as db:
         for stmt in _DDL.strip().split(";"):
             s = stmt.strip()
@@ -107,6 +109,14 @@ async def get_pending_followups():
 async def mark_followup_sent(fid):
     async with aiosqlite.connect(config.DB_PATH) as db:
         await db.execute("UPDATE followups SET sent=1 WHERE id=?", (fid,))
+        await db.commit()
+
+
+async def mark_lead_completed(user_id):
+    async with aiosqlite.connect(config.DB_PATH) as db:
+        await db.execute(
+            "UPDATE leads SET completed=1 WHERE user_id=? AND completed=0",
+            (user_id,))
         await db.commit()
 
 
