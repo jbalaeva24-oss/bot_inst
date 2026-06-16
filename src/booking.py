@@ -99,9 +99,15 @@ async def booking_contact_received(message: Message, state: FSMContext) -> None:
     await cancel_followup(user.id)
     await mark_lead_completed(user.id)
 
+    # Стикер — победа 🎉
+    try:
+        await message.answer_sticker("CAACAgIAAxkBAAEMnKRmhAABzP6yHn7JR2h1AAFt_lUbHgACqRQAAoKlWUkOAAFv1X4AAQE26")
+    except Exception:
+        pass
+
     # Подтверждение пользователю
     await message.answer(
-        "🎉 Заявка принята!\n\n"
+        "🎉 <b>Заявка принята!</b>\n\n"
         f"🕐 Время: <b>{time_label}</b>\n"
         f"📱 Контакт: <b>{contact}</b>\n\n"
         "Напишу вам лично в указанное время.\n"

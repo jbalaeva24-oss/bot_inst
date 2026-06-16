@@ -365,6 +365,34 @@ TIMELINE_COMMENTS = {
 }
 
 
+async def _send_offer_card(message, title: str, details: str, timeline_comment: str):
+    from src.offer_card import make_offer_card
+    # Разделяем цену от деталей
+    lines = details.strip().split("\n")
+    price_line = ""
+    body_lines = []
+    timeline_line = ""
+    for line in lines:
+        if "₽" in line and not price_line:
+            price_line = ""  # уже в title
+        elif line.startswith("⏱"):
+            timeline_line = line.replace("⏱", "").replace("Срок:", "").strip()
+        else:
+            body_lines.append(line)
+    body = "\n".join(body_lines)
+    try:
+        buf = make_offer_card(title, "", body, timeline_line)
+        from aiogram.types import BufferedInputFile as BIF
+        await message.answer_photo(
+            BIF(buf.read(), filename="offer.jpg"),
+            caption=f"{timeline_comment}\n\n<b>Что входит — на карточке выше 👆</b>",
+            parse_mode="HTML",
+        )
+    except Exception as e:
+        log.warning("offer card failed: %s", e)
+        await message.answer(f"{timeline_comment}\n\n🌐 <b>{title}</b>\n\n{details}", parse_mode="HTML")
+
+
 @router.callback_query(Funnel.q_timeline, F.data.startswith("timeline:"))
 async def q_timeline(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
@@ -379,30 +407,18 @@ async def q_timeline(cb: CallbackQuery, state: FSMContext):
 
     if product == "bot":
         title, details = offer["bot"]
-        text = (
-            f"{timeline_comment}\n\n"
-            f"Вот что предлагаю под ваш запрос:\n\n"
-            f"🤖 <b>{title}</b>\n\n{details}"
-        )
+        await _send_offer_card(cb.message, f"🤖 {title}", details, timeline_comment)
     elif product == "both":
         st, sd = offer["site"]
         bt, bd = offer["bot"]
-        text = (
-            f"{timeline_comment}\n\n"
-            f"Связка под ваш бюджет:\n\n"
-            f"🌐 <b>{st}</b>\n{sd}\n\n"
-            f"🤖 <b>{bt}</b>\n{bd}\n\n"
-            f"💡 При заказе вместе — скидка 10%"
-        )
+        await _send_offer_card(cb.message, f"🌐 {st}", sd, timeline_comment)
+        await _send_offer_card(cb.message, f"🤖 {bt}", bd, "💡 При заказе вместе — скидка 10%")
     else:
         title, details = offer["site"]
-        text = (
-            f"{timeline_comment}\n\n"
-            f"Вот что предлагаю под ваш запрос:\n\n"
-            f"🌐 <b>{title}</b>\n\n{details}"
-        )
+        await _send_offer_card(cb.message, f"🌐 {title}", details, timeline_comment)
 
-    await edit_or_answer(cb, text,
+    await cb.message.answer(
+        "Как вам предложение?",
         reply_markup=kb(
             ("✅ Отлично, давайте работать!", "offer:yes"),
             ("💳 Можно разбить оплату?",     "offer:installment"),
@@ -435,7 +451,7 @@ async def offer_yes(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     await cancel_followup(cb.from_user.id)
     await edit_or_answer(cb,
-        "🎉 Отлично! Рад работать с вами.\n\n"
+        "🎉 <b>Отлично!</b> Рад работать с вами.\n\n"
         "Запишемся на короткий созвон — обсудим детали и стартуем 🚀"
     )
     await send_lead_magnet(cb.message)
@@ -446,9 +462,9 @@ async def offer_yes(cb: CallbackQuery, state: FSMContext):
 async def offer_installment(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     await edit_or_answer(cb,
-        "💳 Конечно, работаю с удобной оплатой:\n\n"
-        "• 50% предоплата → 50% при сдаче\n"
-        "• Или по этапам: 30% → 40% → 30%\n\n"
+        "💳 <b>Конечно, работаю с удобной оплатой:</b>\n\n"
+        "• <b>50%</b> предоплата → <b>50%</b> при сдаче\n"
+        "• Или по этапам: <b>30% → 40% → 30%</b>\n\n"
         "Выберите удобный вариант — и стартуем 🚀",
         reply_markup=kb(
             ("✅ 50/50 — подходит",          "final:50_50"),
@@ -466,12 +482,12 @@ async def offer_expensive(cb: CallbackQuery, state: FSMContext):
     product = data.get("product", "сайт")
     prod_label = {"site": "сайт", "bot": "бот", "both": "сайт + бот"}.get(product, "проект")
     await edit_or_answer(cb,
-        f"Понимаю — давайте посчитаем окупаемость.\n\n"
-        f"📊 Если {prod_label} принесёт всего <b>2 новых клиента в месяц</b>\n"
-        f"💰 При среднем чеке <b>15 000 ₽</b> = +30 000 ₽/мес\n"
-        f"📈 За год это <b>+360 000 ₽</b> дохода\n\n"
-        f"Инвестиция окупается уже в первый месяц.\n\n"
-        f"Плюс разобьём оплату — не нужно платить всё сразу:",
+        f"Понимаю. Давайте посчитаем окупаемость:\n\n"
+        f"📊 Если {prod_label} принесёт <b>2 новых клиента в месяц</b>\n"
+        f"💰 При среднем чеке <b>15 000 ₽</b> → <b>+30 000 ₽/мес</b>\n"
+        f"📈 За год → <b>+360 000 ₽</b> дохода\n\n"
+        f"Инвестиция окупается уже в первый месяц.\n"
+        f"Плюс оплату можно разбить — не нужно платить всё сразу:",
         reply_markup=kb(
             ("✅ Логично, давайте работать",  "final:yes"),
             ("💳 Интересует рассрочка",       "final:stages"),
