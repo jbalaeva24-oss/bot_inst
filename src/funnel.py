@@ -332,8 +332,8 @@ async def q_leads(cb: CallbackQuery, state: FSMContext):
         "2️⃣ Какой бюджет рассматриваете на разработку?",
         reply_markup=kb(
             ("💰 До 30 000 ₽", "budget:low"),
-            ("💰💰 30–60 000 ₽", "budget:mid"),
-            ("💰💰💰 60–100 000 ₽", "budget:high"),
+            ("💰 30–60 000 ₽", "budget:mid"),
+            ("💰 60–100 000 ₽", "budget:high"),
             ("💎 100 000+ ₽", "budget:premium"),
             ("🤔 Зависит от результата", "budget:discuss"),
         )
