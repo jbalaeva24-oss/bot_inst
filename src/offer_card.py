@@ -329,21 +329,29 @@ def make_offer_card(title: str, _unused: str, details: str, timeline: str) -> io
         ("ГАРАНТИЯ",   "Результата",   _icon_shield),
     ]
     sw = (W - 46) // len(stats)
+    ir = 22          # radius of icon circle
+    GAP = 14         # gap between circle and text block
     for i, (val, lbl, icon_fn) in enumerate(stats):
         sx = 26 + i * sw + sw // 2
         cy_bar = BAR_Y + BAR_H // 2
 
-        # Тёмный круг иконки
-        ir = 22
-        d.ellipse([sx - ir - 70, cy_bar - ir, sx - ir + 26, cy_bar + ir],
-                  fill=ICON_DARK)
-        icon_fn(d, sx - 44, cy_bar, 11, ORANGE_L)
-
-        # Текст
+        # Measure text widths to centre the [icon + text] group in the column
         vw = _tlen(d, val, f_statv)
         lw = _tlen(d, lbl, f_statl)
-        d.text((sx - 10 - vw // 2, cy_bar - 14), val, font=f_statv, fill=ORANGE)
-        d.text((sx - 10 - lw // 2, cy_bar + 12), lbl, font=f_statl, fill=DGRAY)
+        text_w = max(vw, lw)
+        group_w = ir * 2 + GAP + text_w
+        group_x = sx - group_w // 2   # left edge of group
+
+        # Тёмный круг иконки
+        cx_icon = group_x + ir
+        d.ellipse([cx_icon - ir, cy_bar - ir, cx_icon + ir, cy_bar + ir],
+                  fill=ICON_DARK)
+        icon_fn(d, cx_icon, cy_bar, 11, ORANGE_L)
+
+        # Текст (выровнен по левому краю текстового блока)
+        tx = group_x + ir * 2 + GAP
+        d.text((tx, cy_bar - 15), val, font=f_statv, fill=ORANGE)
+        d.text((tx, cy_bar + 11), lbl, font=f_statl, fill=DGRAY)
 
         # Разделитель
         if i > 0:
