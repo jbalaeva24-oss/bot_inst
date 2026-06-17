@@ -80,6 +80,16 @@ async def cmd_start(message: Message, state: FSMContext):
     await cancel_followup(user.id)
     await schedule_followups(user.id)
 
+    # Баннер — если файл есть в assets/banner.jpg
+    banner_path = config.BASE_DIR / "assets" / "banner.jpg"
+    if not banner_path.exists():
+        banner_path = config.BASE_DIR / "assets" / "banner.png"
+    if banner_path.exists():
+        try:
+            await message.answer_photo(FSInputFile(str(banner_path)))
+        except Exception as e:
+            log.warning("banner: %s", e)
+
     await message.answer(
         "Привет! 👋\n\n"
         "Я делаю сайты и Telegram-боты под ключ.\n"
