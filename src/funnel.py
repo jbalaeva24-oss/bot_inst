@@ -80,27 +80,36 @@ async def cmd_start(message: Message, state: FSMContext):
     await cancel_followup(user.id)
     await schedule_followups(user.id)
 
-    # Баннер — если файл есть в assets/banner.jpg
+    # Баннер + текст одним сообщением
     banner_path = config.BASE_DIR / "assets" / "banner.jpg"
     if not banner_path.exists():
         banner_path = config.BASE_DIR / "assets" / "banner.png"
-    if banner_path.exists():
-        try:
-            await message.answer_photo(FSInputFile(str(banner_path)))
-        except Exception as e:
-            log.warning("banner: %s", e)
 
-    await message.answer(
+    greeting = (
         "Привет! 👋\n\n"
         "Я делаю сайты и Telegram-боты под ключ.\n"
         "Помогаю бизнесу получать больше клиентов и заявок.\n\n"
-        "Чем могу помочь?",
-        reply_markup=kb(
-            ("💰 Сколько стоит?", "intent:price"),
-            ("📞 Хочу созвониться", "intent:call"),
-            ("👀 Просто смотрю пока", "intent:explore"),
-        )
+        "Чем могу помочь?"
     )
+    reply_kb = kb(
+        ("💰 Сколько стоит?", "intent:price"),
+        ("📞 Хочу созвониться", "intent:call"),
+        ("👀 Просто смотрю пока", "intent:explore"),
+    )
+
+    if banner_path.exists():
+        try:
+            await message.answer_photo(
+                FSInputFile(str(banner_path)),
+                caption=greeting,
+                reply_markup=reply_kb,
+            )
+        except Exception as e:
+            log.warning("banner: %s", e)
+            await message.answer(greeting, reply_markup=reply_kb)
+    else:
+        await message.answer(greeting, reply_markup=reply_kb)
+
     await state.set_state(Funnel.intent)
 
 
