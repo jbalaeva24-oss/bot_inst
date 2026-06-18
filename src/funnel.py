@@ -278,8 +278,10 @@ async def demo_bot(cb: CallbackQuery, state: FSMContext):
         reply_markup=kb(
             ("📥 Бот-воронка для заявок", "bot_demo:wow"),
             ("📅 Бот для записи", "bot_demo:questions"),
+            ("🛒 Бот-магазин с оплатой", "bot_demo:shop"),
+            ("💬 Бот-консультант", "bot_demo:consult"),
+            ("📊 Бот для опросов", "bot_demo:survey"),
             ("💰 Сколько стоит?", "bot_demo:price"),
-            ("🔧 Нужен другой функционал", "bot_demo:custom"),
         )
     )
     await state.set_state(Funnel.demo_bot_reaction)
@@ -311,10 +313,13 @@ async def bot_demo_reaction(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
     tag = cb.data.split(":")[1]
     reactions = {
-        "wow":       "🔥 Отлично! Такой бот можно сделать именно под ваш бизнес.",
-        "questions": "Конечно, разберём все вопросы — для этого пара уточнений:",
-        "price":     "Сейчас посчитаем — зависит от функционала. Пара вопросов:",
-        "custom":    "Сделаю под ваши задачи! Чтобы предложить точное решение:",
+        "wow":      "🔥 Бот-воронка — отличный выбор! Уточню пару деталей:",
+        "questions": "📅 Бот для записи отлично подходит для услуг. Уточню:",
+        "shop":     "🛒 Бот-магазин с оплатой — популярное решение. Уточню:",
+        "consult":  "💬 Бот-консультант хорошо прогревает клиентов. Уточню:",
+        "survey":   "📊 Бот для опросов и обратной связи. Уточню:",
+        "price":    "Сейчас посчитаем — зависит от функционала. Пара вопросов:",
+        "custom":   "Сделаю под ваши задачи! Чтобы предложить точное решение:",
     }
     await state.update_data(bot_reaction=tag)
     await edit_or_answer(cb,
