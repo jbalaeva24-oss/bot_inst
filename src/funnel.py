@@ -343,7 +343,7 @@ async def q_leads(cb: CallbackQuery, state: FSMContext):
             ("💰 До 30 000 ₽", "budget:low"),
             ("💰 30 000–60 000 ₽", "budget:mid"),
             ("💰 60 000–100 000 ₽", "budget:high"),
-            ("💰 100 000+ ₽", "budget:premium"),
+            ("💰 100 000 ₽ +", "budget:premium"),
             ("🤔 Зависит от результата", "budget:discuss"),
         )
     )
