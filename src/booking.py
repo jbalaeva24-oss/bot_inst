@@ -101,7 +101,7 @@ async def booking_contact_received(message: Message, state: FSMContext) -> None:
 
     # Стикер — победа 🎉
     try:
-        await message.answer_sticker("CAACAgIAAxkBAAIB-GoxOqHj2mTQAAEhvHbMbAer19sWIgACU3EAAiPZOUuBPlKJtD98SzwE")
+        await message.answer_sticker("CAACAgIAAxkBAAPBajQmUFv0Xfzyqt0p8dg1F2WzzQ0AAswcAALaTjBI2HuSgmODFuE8BA")
     except Exception:
         pass
 
