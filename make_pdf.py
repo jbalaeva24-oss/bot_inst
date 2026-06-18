@@ -1,8 +1,7 @@
 """
-Лид-магнит PDF — светлый дизайн по референсу:
-бежевый фон, белые карточки, оранжевые акценты, иконки.
+Продающий PDF-гайд — бежевый дизайн, белые карточки, оранжевые акценты.
 """
-import os, math
+import os
 from pathlib import Path
 from fpdf import FPDF
 
@@ -22,9 +21,9 @@ DGRAY   = ( 90,  80,  68)
 LGRAY   = (160, 148, 134)
 BAR_BG  = (228, 215, 198)
 CARD_SH = (215, 200, 180)
-GREEN   = ( 72, 160,  80)
+GREEN   = ( 60, 150,  70)
 RED     = (190,  75,  65)
-BLUE    = ( 80, 140, 200)
+BLUE    = ( 70, 130, 190)
 
 
 class PDF(FPDF):
@@ -37,106 +36,71 @@ class PDF(FPDF):
         self.set_fill_color(*c)
         if r:
             self.set_draw_color(*c)
-            self.rounded_rect(x, y, w, h, r, "F")
+            try:
+                self.rounded_rect(x, y, w, h, r, corner_style="ABCD", style="F")
+            except Exception:
+                self.rect(x, y, w, h, "F")
         else:
             self.rect(x, y, w, h, "F")
 
-    def rounded_rect(self, x, y, w, h, r, style=""):
-        self.set_draw_color(*self._fill)
-        k = self.k
-        hp = self.h
-        self.set_line_width(0)
-        # Используем встроенный rounded_rect если доступен, иначе rect
+    def rr(self, x, y, w, h, r, c):
+        self.set_fill_color(*c)
+        self.set_draw_color(*c)
         try:
-            super().rounded_rect(x, y, w, h, r, corner_style="ABCD", style=style)
+            self.rounded_rect(x, y, w, h, r, corner_style="ABCD", style="F")
         except Exception:
-            self.rect(x, y, w, h, style)
+            self.rect(x, y, w, h, "F")
 
-    @property
-    def _fill(self):
-        return (self._fill_color.r, self._fill_color.g, self._fill_color.b) if hasattr(self, '_fill_color') else WHITE
+    def dot(self, x, y, r, c):
+        self.set_fill_color(*c)
+        self.ellipse(x - r, y - r, r * 2, r * 2, "F")
 
     def hl(self, y, c=CARD_SH, lw=0.3):
         self.set_draw_color(*c)
         self.set_line_width(lw)
         self.line(0, y, 210, y)
 
-    def vl(self, x, y1, y2, c=CARD_SH, lw=0.3):
-        self.set_draw_color(*c)
-        self.set_line_width(lw)
-        self.line(x, y1, x, y2)
-
-    def dot(self, x, y, r, c):
-        self.set_fill_color(*c)
-        self.ellipse(x - r, y - r, r * 2, r * 2, "F")
-
-    def circle_out(self, cx, cy, r, c, lw=0.5):
-        self.set_draw_color(*c)
-        self.set_line_width(lw)
-        self.ellipse(cx - r, cy - r, r * 2, r * 2, "D")
-
-    # ── Фон страницы ─────────────────────────────────────────────────────────
     def page_bg(self):
-        """Светлый бежевый фон."""
-        # Верхняя треть чуть светлее
         self.set_fill_color(*BG)
         self.rect(0, 0, 210, 297, "F")
-        # Нижняя треть чуть темнее (имитация градиента)
-        for i in range(10):
-            t = i / 9
+        for i in range(12):
+            t = i / 11
             c = tuple(int(BG[j] + (BG2[j] - BG[j]) * t) for j in range(3))
             self.set_fill_color(*c)
-            y_start = 180 + i * 12
-            self.rect(0, y_start, 210, 13, "F")
+            self.rect(0, 180 + i * 10, 210, 11, "F")
 
-    # ── Белая карточка ───────────────────────────────────────────────────────
     def white_card(self, x, y, w, h, r=5):
-        # Тень
         self.set_fill_color(*CARD_SH)
         try:
-            self.rounded_rect(x + 1.5, y + 1.5, w, h, r, "F")
+            self.rounded_rect(x + 1.5, y + 1.5, w, h, r, corner_style="ABCD", style="F")
         except Exception:
             self.rect(x + 1.5, y + 1.5, w, h, "F")
-        # Белая карточка
         self.set_fill_color(*WHITE)
         try:
-            self.rounded_rect(x, y, w, h, r, "F")
+            self.rounded_rect(x, y, w, h, r, corner_style="ABCD", style="F")
         except Exception:
             self.rect(x, y, w, h, "F")
 
-    # ── Иконка-квадрат ───────────────────────────────────────────────────────
-    def icon_box(self, x, y, s=8):
-        """Светло-оранжевый квадрат для иконки."""
-        self.set_fill_color(*ORANGE_L)
-        try:
-            self.rounded_rect(x, y, s, s, 2, "F")
-        except Exception:
-            self.rect(x, y, s, s, "F")
-
     def icon_check(self, x, y, s=8):
-        """Галочка в оранжевом квадрате."""
-        self.icon_box(x, y, s)
+        self.rr(x, y, s, s, 2, ORANGE_L)
         cx, cy = x + s / 2, y + s / 2
         self.set_draw_color(*ORANGE)
-        self.set_line_width(0.6)
+        self.set_line_width(0.65)
         self.line(cx - 2, cy, cx - 0.5, cy + 2)
         self.line(cx - 0.5, cy + 2, cx + 2.5, cy - 1.5)
 
-    def icon_circle(self, cx, cy, r, c, filled=True):
-        """Круг иконки."""
-        self.set_fill_color(*c)
-        self.set_draw_color(*c)
-        self.ellipse(cx - r, cy - r, r * 2, r * 2, "F" if filled else "D")
+    def icon_x(self, x, y, s=8):
+        self.rr(x, y, s, s, 2, (255, 230, 225))
+        cx, cy = x + s / 2, y + s / 2
+        self.set_draw_color(*RED)
+        self.set_line_width(0.65)
+        self.line(cx - 2, cy - 2, cx + 2, cy + 2)
+        self.line(cx + 2, cy - 2, cx - 2, cy + 2)
 
-    # ── Бейдж ────────────────────────────────────────────────────────────────
     def badge(self, x, y, text, bg=ORANGE, tc=WHITE, sz=8):
         self.f(sz, True, tc)
         w = self.get_string_width(text) + 6
-        self.set_fill_color(*bg)
-        try:
-            self.rounded_rect(x, y, w, 7, 2, "F")
-        except Exception:
-            self.rect(x, y, w, 7, "F")
+        self.rr(x, y, w, 7, 2, bg)
         self.set_xy(x + 1, y + 0.8)
         self.cell(w - 2, 5.5, text, align="C")
 
@@ -144,523 +108,476 @@ class PDF(FPDF):
         self.f(7, True, ORANGE)
         self.set_xy(14, 14)
         self.cell(0, 5, f"{num:02d}  /  {title.upper()}")
-        # Оранжевая линия
         self.set_fill_color(*ORANGE)
         self.rect(14, 21, 30, 0.8, "F")
         self.set_fill_color(*CARD_SH)
-        self.rect(44, 21.3, 166, 0.4, "F")
+        self.rect(44, 21.3, 152, 0.4, "F")
 
-    # ── Блок фичи ────────────────────────────────────────────────────────────
-    def feat_card(self, x, y, w, h, icon_idx, text):
-        """Белая карточка с иконкой и текстом."""
-        self.white_card(x, y, w, h, r=4)
-        # Иконка
-        isize = 9
-        ix = x + 4
-        iy = y + (h - isize) / 2
-        self.icon_box(ix, iy, isize)
-        # Символ иконки
-        icons_chars = ["+", ">", "*", "#", "@", "!"]
-        self.set_draw_color(*ORANGE)
-        self.set_line_width(0.5)
-        cx, cy = ix + isize / 2, iy + isize / 2
-        if icon_idx % 6 == 0:    # страница
-            self.line(cx - 2, cy - 1, cx + 2, cy - 1)
-            self.line(cx - 2, cy + 0.5, cx + 2, cy + 0.5)
-            self.line(cx - 2, cy + 2, cx + 1, cy + 2)
-        elif icon_idx % 6 == 1:  # график
-            self.line(cx - 2, cy + 2, cx, cy - 1)
-            self.line(cx, cy - 1, cx + 2, cy - 2.5)
-            self.line(cx + 1.5, cy - 3, cx + 2, cy - 2.5)
-            self.line(cx + 2, cy - 2.5, cx + 1.5, cy - 2)
-        elif icon_idx % 6 == 2:  # шестерня
-            self.ellipse(cx - 1.8, cy - 1.8, 3.6, 3.6, "D")
-        elif icon_idx % 6 == 3:  # календарь
-            self.rect(cx - 2.5, cy - 2, 5, 4, "D")
-            self.line(cx - 2.5, cy - 0.5, cx + 2.5, cy - 0.5)
-        elif icon_idx % 6 == 4:  # цель
-            self.ellipse(cx - 2.5, cy - 2.5, 5, 5, "D")
-            self.ellipse(cx - 1, cy - 1, 2, 2, "F")
-        else:                     # щит
-            self.line(cx - 2, cy - 2, cx, cy - 3)
-            self.line(cx, cy - 3, cx + 2, cy - 2)
-            self.line(cx + 2, cy - 2, cx + 2, cy + 0.5)
-            self.line(cx + 2, cy + 0.5, cx, cy + 3)
-            self.line(cx, cy + 3, cx - 2, cy + 0.5)
-            self.line(cx - 2, cy + 0.5, cx - 2, cy - 2)
-
-        # Текст
-        self.f(8.5, False, DARK)
-        self.set_xy(x + isize + 7, y + 2)
-        self.multi_cell(w - isize - 10, 5, text)
+    def num_circle(self, cx, cy, n, c):
+        self.set_fill_color(*c)
+        self.ellipse(cx - 6, cy - 6, 12, 12, "F")
+        self.f(9, True, WHITE)
+        self.set_xy(cx - 6, cy - 5.5)
+        self.cell(12, 10, str(n), align="C")
 
     # ─────────────────────────────────────────────────────────────────────────
     # ОБЛОЖКА
     # ─────────────────────────────────────────────────────────────────────────
     def cover(self):
         self.page_bg()
-        self.section_label(0, "Бесплатный гайд")
 
-        # ── Левая белая карточка ─────────────────────────────────────────────
-        self.white_card(12, 28, 88, 200, r=5)
+        # Верхняя оранжевая полоска
+        self.rr(0, 0, 210, 6, 0, ORANGE)
 
-        self.f(6.5, True, ORANGE)
-        self.set_xy(18, 34)
-        self.cell(0, 4, "КОММЕРЧЕСКИЙ ГИД")
-
-        # Оранжевая линия
+        # Метка
+        self.f(7, True, ORANGE)
+        self.set_xy(14, 14)
+        self.cell(0, 5, "ВЕБ-РАЗРАБОТКА ПОД КЛЮЧ  /  КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ")
         self.set_fill_color(*ORANGE)
-        self.rect(18, 39, 28, 0.8, "F")
+        self.rect(14, 21, 50, 0.8, "F")
+        self.set_fill_color(*CARD_SH)
+        self.rect(64, 21.3, 132, 0.4, "F")
 
-        self.f(22, True, DARK)
-        self.set_xy(18, 43)
-        self.multi_cell(76, 10, "Сайт\nили бот?", "L")
+        # Левая белая карточка
+        self.white_card(12, 28, 115, 200, r=6)
 
-        self.f(9, False, DGRAY)
-        self.set_xy(18, 71)
-        self.multi_cell(76, 5.5,
-            "Как выбрать правильный\n"
-            "инструмент и не потратить\n"
-            "деньги впустую", "L")
+        # Заголовок
+        self.f(8, True, ORANGE)
+        self.set_xy(20, 36)
+        self.cell(0, 5, "САЙТЫ И TELEGRAM-БОТЫ")
+
+        self.f(24, True, DARK)
+        self.set_xy(20, 44)
+        self.multi_cell(100, 11, "Продающий\nсайт или бот\nпод ключ", "L")
+
+        self.f(10, False, DGRAY)
+        self.set_xy(20, 84)
+        self.multi_cell(100, 5.5,
+            "Создаём инструменты, которые\n"
+            "приносят заявки — а не просто\n"
+            "красиво выглядят.", "L")
 
         # Буллеты
         bullets = [
-            "Сравнение 3 инструментов",
-            "3 реальных кейса с цифрами",
-            "Алгоритм выбора за 5 шагов",
-            "Частые ошибки",
+            "Запуск за 3–14 дней",
+            "Адаптация под мобильные",
+            "Форма заявки + Telegram",
+            "Гарантия результата",
         ]
-        by = 100
+        by = 114
         for t in bullets:
-            self.icon_check(18, by + 0.5, 6)
-            self.f(8, False, DARK)
-            self.set_xy(26, by)
-            self.cell(72, 6, t)
-            by += 9
+            self.icon_check(20, by + 0.5, 6)
+            self.f(9, False, DARK)
+            self.set_xy(28, by)
+            self.cell(98, 6.5, t)
+            by += 10
 
-        # Кнопка
-        self.set_fill_color(*ORANGE)
-        try:
-            self.rounded_rect(18, 218, 76, 10, 2.5, "F")
-        except Exception:
-            self.rect(18, 218, 76, 10, "F")
-        self.f(9, True, WHITE)
-        self.set_xy(18, 220)
-        self.cell(76, 6, "Начать читать  ->", align="C")
+        # Оранжевая кнопка
+        self.rr(20, 200, 100, 12, 3, ORANGE)
+        self.f(10, True, WHITE)
+        self.set_xy(20, 202)
+        self.cell(100, 8, "Записаться на разбор  →", align="C")
 
-        # ── Правая панель: три факта ──────────────────────────────────────────
-        # Большой процент
-        self.f(52, True, ORANGE)
-        self.set_xy(104, 32)
-        self.cell(94, 38, "73%", align="C")
-
-        self.f(9, False, DGRAY)
-        self.set_xy(104, 70)
-        self.multi_cell(94, 5.5, "бизнесов выбирают\nне тот инструмент", align="C")
-
-        # Три карточки-факта
+        # Правая панель
         facts = [
-            (ORANGE,  "60-80%", "открываемость\nTelegram"),
-            (GREEN,   "3x",     "дешевле лид\nс лендинга"),
-            (BLUE,    "7 дней", "средний запуск\nбота"),
+            (ORANGE,  "50+",    "проектов\nсдано"),
+            (GREEN,   "7+",     "лет\nопыта"),
+            (BLUE,    "14 дн",  "макс срок\nзапуска"),
         ]
         for i, (c, n, l) in enumerate(facts):
-            fy = 95 + i * 44
-            self.white_card(108, fy, 88, 38, r=4)
-            self.set_fill_color(*c)
-            try:
-                self.rounded_rect(108, fy, 88, 2.5, 4, "F")
-            except Exception:
-                self.rect(108, fy, 88, 2.5, "F")
-            self.f(18, True, c)
-            self.set_xy(108, fy + 4)
-            self.cell(88, 12, n, align="C")
-            self.f(7.5, False, LGRAY)
-            self.set_xy(108, fy + 17)
-            self.multi_cell(88, 4.5, l, align="C")
+            fy = 34 + i * 58
+            self.white_card(133, fy, 63, 50, r=4)
+            self.rr(133, fy, 63, 2.5, 4, c)
+            self.f(22, True, c)
+            self.set_xy(133, fy + 5)
+            self.cell(63, 14, n, align="C")
+            self.f(8, False, LGRAY)
+            self.set_xy(133, fy + 21)
+            self.multi_cell(63, 4.5, l, align="C")
 
-        # ── Нижняя плашка ────────────────────────────────────────────────────
-        self.set_fill_color(*BAR_BG)
-        try:
-            self.rounded_rect(12, 240, 186, 46, 5, "F")
-        except Exception:
-            self.rect(12, 240, 186, 46, "F")
-
-        stats = [("50% СТАРТ", "Предоплата"), ("50% СДАЧА", "При приёмке"), ("ГАРАНТИЯ", "Результата")]
+        # Нижняя плашка
+        self.rr(12, 240, 186, 46, 5, BAR_BG)
+        stats = [
+            ("50% СТАРТ",  "Предоплата"),
+            ("50% СДАЧА",  "При приёмке"),
+            ("ГАРАНТИЯ",   "Результата"),
+        ]
         sw = 62
         for i, (v, l) in enumerate(stats):
             sx = 12 + i * sw
-            # Круг
             self.set_fill_color(*DARK)
-            self.ellipse(sx + 10, 248, 12, 12, "F")
-            # Текст
-            self.f(9, True, ORANGE)
-            self.set_xy(sx + 24, 249)
+            self.ellipse(sx + 10, 250, 10, 10, "F")
+            self.f(8, True, ORANGE)
+            self.set_xy(sx + 23, 250)
             self.cell(sw - 26, 5, v)
-            self.f(7.5, False, DGRAY)
-            self.set_xy(sx + 24, 256)
+            self.f(7, False, DGRAY)
+            self.set_xy(sx + 23, 257)
             self.cell(sw - 26, 5, l)
             if i < 2:
                 self.set_fill_color(*CARD_SH)
-                self.rect(sx + sw - 0.5, 244, 1, 36, "F")
+                self.rect(sx + sw - 0.5, 244, 0.5, 36, "F")
 
     # ─────────────────────────────────────────────────────────────────────────
-    # СТРАНИЦА 2: ПРОБЛЕМА
+    # СТРАНИЦА 2: БОЛИ
     # ─────────────────────────────────────────────────────────────────────────
-    def p_problem(self):
+    def p_pain(self):
         self.page_bg()
-        self.section_label(1, "Почему это важно")
+        self.section_label(1, "Что вы теряете прямо сейчас")
 
-        # Заголовок
-        self.f(22, True, DARK)
+        self.f(21, True, DARK)
         self.set_xy(14, 28)
-        self.multi_cell(182, 10, "Почему большинство\nтратит деньги зря", "L")
+        self.multi_cell(182, 10, "Пока нет сайта или бота —\nконкуренты уже берут ваших клиентов", "L")
 
-        self.f(10, False, DGRAY)
+        self.f(9.5, False, DGRAY)
         self.set_xy(14, 58)
-        self.multi_cell(182, 6,
-            "Каждый день ко мне приходят предприниматели с похожей историей. "
-            "Потратили 80 000 рублей на сайт — заявок нет. "
-            "Сделали лендинг — а клиенты сидят в Telegram. "
-            "Заказали бот — а нужен был нормальный сайт с SEO.", "L")
+        self.multi_cell(182, 5.5,
+            "Сегодня 78% клиентов ищут исполнителей онлайн. Без нормального сайта или бота "
+            "вы просто невидимы — даже если делаете хорошую работу.", "L")
 
-        # Три карточки-статистики
-        stats = [
-            (ORANGE, "73%",   "выбирают\nне тот инструмент"),
-            (RED,    "2.4x",  "дороже обходится\nпеределка"),
-            (GREEN,  "87 дн", "теряют в среднем\nна ошибочный путь"),
-        ]
-        for i, (c, n, l) in enumerate(stats):
-            x = 14 + i * 63
-            self.white_card(x, 102, 59, 54, r=4)
-            self.set_fill_color(*c)
-            try:
-                self.rounded_rect(x, 102, 59, 2.5, 4, "F")
-            except Exception:
-                self.rect(x, 102, 59, 2.5, "F")
-            self.f(24, True, c)
-            self.set_xy(x, 106)
-            self.cell(59, 16, n, align="C")
-            self.f(8, False, LGRAY)
-            self.set_xy(x, 124)
-            self.multi_cell(59, 5, l, align="C")
-
-        # Цитата-карточка
-        self.white_card(14, 166, 182, 28, r=4)
-        self.set_fill_color(*ORANGE)
-        try:
-            self.rounded_rect(14, 166, 3.5, 28, 4, "F")
-        except Exception:
-            self.rect(14, 166, 3.5, 28, "F")
-        self.f(10, True, DARK)
-        self.set_xy(22, 172)
-        self.multi_cell(170, 6,
-            "«Правильный инструмент — это половина успеха.\n"
-            "Этот гайд поможет выбрать его за 12 минут.»")
-
-        # Ошибки
-        self.f(11, True, DARK)
-        self.set_xy(14, 204); self.cell(0, 7, "Типичные ошибки:")
-
-        errs = [
-            "Сделали многостраничный сайт — а нужен был простой лендинг",
-            "Заказали лендинг — а 80% клиентов приходят через Telegram",
-            "Потратили 100 000 руб. на сайт — а бот за 20 000 дал бы больше",
-        ]
-        for i, e in enumerate(errs):
-            ey = 214 + i * 16
-            self.white_card(14, ey, 182, 13, r=3)
-            self.set_fill_color(*ORANGE)
-            self.rect(14, ey, 2.5, 13, "F")
-            self.icon_check(18, ey + 2.5, 8)
-            self.f(9, False, DARK)
-            self.set_xy(28, ey + 2.5)
-            self.cell(164, 8, e)
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # СТРАНИЦА 3: СРАВНЕНИЕ
-    # ─────────────────────────────────────────────────────────────────────────
-    def p_compare(self):
-        self.page_bg()
-        self.section_label(2, "Сравнение инструментов")
-
-        self.f(22, True, DARK)
-        self.set_xy(14, 28)
-        self.multi_cell(182, 10, "Три инструмента — три разные задачи", "L")
-
-        tools = [
-            (ORANGE, "Telegram-бот",  "от 20 000 руб.", "3-7 дней",
-             "Автоматизация\nи повторный контакт",
-             ["Работает 24/7 без менеджера",
-              "Push открывают 60-80%",
-              "Воронка, запись, рассылки",
-              "Повторный контакт бесплатно"]),
-            (GREEN,  "Лендинг",       "от 25 000 руб.", "5-10 дней",
-             "Один оффер —\nмаксимум заявок",
-             ["Продающая структура",
-              "Один оффер — фокус",
-              "Быстрый запуск",
-              "Форма заявки + Telegram"]),
-            (BLUE,   "Сайт",          "от 40 000 руб.", "10-14 дней",
-             "Многостраничный\nсайт под ключ",
-             ["Уникальный дизайн",
-              "Каталог и портфолио",
-              "Доверие и репутация",
-              "Работает годами"]),
+        # Карточки с болями (слева — проблема, справа — цена)
+        pains = [
+            ("Нет онлайн-присутствия",
+             "Клиенты уходят к конкурентам, у которых красивый сайт — даже если они хуже вас",
+             "до 30%", "потеря клиентов"),
+            ("Обработка заявок вручную",
+             "Менеджер тратит по 4–6 часов в день на переписку, которую бот сделает за секунды",
+             "4–6 ч", "в день зря"),
+            ("Нет автоматического прогрева",
+             "Потенциальный клиент написал — вы ответили через час — он уже ушёл к другому",
+             "60%", "уходят без ответа"),
         ]
 
-        for i, (c, name, price, term, desc, pts) in enumerate(tools):
-            x = 14 + i * 63
-            self.white_card(x, 54, 61, 192, r=5)
-            # Цветная шапка карточки
-            self.set_fill_color(*c)
-            try:
-                self.rounded_rect(x, 54, 61, 3, 5, "F")
-            except Exception:
-                self.rect(x, 54, 61, 3, "F")
+        for i, (title, desc, stat, stat_l) in enumerate(pains):
+            y = 80 + i * 58
+            self.white_card(14, y, 182, 50, r=5)
+            self.rr(14, y, 3.5, 50, 5, RED)
 
-            self.f(10, True, c)
-            self.set_xy(x + 3, 60)
-            self.cell(55, 7, name)
+            # Номер
+            self.f(18, True, (240, 230, 220))
+            self.set_xy(18, y + 8)
+            self.cell(16, 14, str(i + 1))
 
-            self.f(8, False, LGRAY)
-            self.set_xy(x + 3, 68)
-            self.multi_cell(55, 4.5, desc)
+            self.f(10, True, DARK)
+            self.set_xy(36, y + 8)
+            self.cell(0, 7, title)
+            self.f(8.5, False, DGRAY)
+            self.set_xy(36, y + 17)
+            self.multi_cell(105, 5, desc)
 
-            # Цена и срок
-            self.set_fill_color(*CARD_SH)
-            self.rect(x + 3, 80, 55, 0.3, "F")
-            self.f(7, False, LGRAY)
-            self.set_xy(x + 3, 82); self.cell(28, 4, "СТОИМОСТЬ")
-            self.set_xy(x + 31, 82); self.cell(27, 4, "СРОК", align="R")
-            self.f(9, True, DARK)
-            self.set_xy(x + 3, 87); self.cell(28, 6, price)
-            self.f(9, True, c)
-            self.set_xy(x + 31, 87); self.cell(27, 6, term, align="R")
+            # Статистика справа
+            self.rr(148, y + 8, 42, 34, 4, ORANGE_L)
+            self.f(16, True, ORANGE)
+            self.set_xy(148, y + 11)
+            self.cell(42, 11, stat, align="C")
+            self.f(7, False, DGRAY)
+            self.set_xy(148, y + 24)
+            self.cell(42, 5, stat_l, align="C")
 
-            self.set_fill_color(*CARD_SH)
-            self.rect(x + 3, 96, 55, 0.3, "F")
-
-            for j, pt in enumerate(pts):
-                py = 100 + j * 33
-                self.feat_card(x + 3, py, 55, 30, j, pt)
-
-        # Лайфхак
-        self.white_card(14, 256, 182, 18, r=4)
-        self.set_fill_color(*GREEN)
-        try:
-            self.rounded_rect(14, 256, 3.5, 18, 4, "F")
-        except Exception:
-            self.rect(14, 256, 3.5, 18, "F")
-        self.f(8.5, True, GREEN)
-        self.set_xy(22, 260); self.cell(24, 5, "Лайфхак:")
-        self.f(8.5, False, DARK)
-        self.set_xy(47, 260)
-        self.cell(144, 5, "Лендинг + Telegram-бот при меньшем бюджете дают больше конверсий")
+        # Вывод
+        self.white_card(14, 258, 182, 22, r=4)
+        self.rr(14, 258, 3.5, 22, 4, ORANGE)
+        self.f(9.5, True, DARK)
+        self.set_xy(22, 262)
+        self.multi_cell(170, 5.5,
+            "Решение простое: один раз создать правильный инструмент — "
+            "и он будет работать на вас 24/7 без выходных.")
 
     # ─────────────────────────────────────────────────────────────────────────
-    # СТРАНИЦА 4: КЕЙСЫ
+    # СТРАНИЦА 3: КЕЙСЫ
     # ─────────────────────────────────────────────────────────────────────────
     def p_cases(self):
         self.page_bg()
-        self.section_label(3, "Реальные кейсы")
+        self.section_label(2, "Реальные результаты клиентов")
 
-        self.f(22, True, DARK)
+        self.f(21, True, DARK)
         self.set_xy(14, 28)
-        self.multi_cell(182, 10, "Результаты клиентов в цифрах", "L")
+        self.multi_cell(182, 10, "Кейсы с цифрами — не просто слова", "L")
 
         cases = [
-            (ORANGE, "Telegram-бот", "Производство мебельных фасадов",
-             "Менеджер вручную обрабатывал заявки — полдня на переписку.",
-             [("Заявок/мес",   "18 > 67",    GREEN, "+272%"),
-              ("Время ответа", "4ч > 2мин",  GREEN, "-97%"),
-              ("Конверсия",    "2.1 > 8.4%", GREEN, "+300%")]),
-            (GREEN, "Лендинг", "Юридические услуги онлайн",
-             "Старый сайт: конверсия 1.2%, лид — 3200 руб.",
-             [("Стоимость лида", "3200>890р.", GREEN, "-72%"),
-              ("Конверсия",      "1.2>4.8%",  GREEN, "+300%"),
-              ("Окупился за",    "18 дней",   GREEN, "ROI 840%")]),
-            (BLUE, "Сайт + Бот", "Строительная компания",
-             "Работали только по сарафану, нет онлайн-присутствия.",
-             [("Новых клиентов", "+14/мес", GREEN, "с нуля"),
-              ("Средний чек",    "+42%",    GREEN, "доверие"),
-              ("ROI за год",     "1840%",   GREEN, "окупился")]),
+            (ORANGE, "Telegram-бот", "Производство фасадов",
+             "Заявки обрабатывали вручную — 4+ часа в день.",
+             [("Заявок/мес", "18 → 67", "+272%"),
+              ("Время ответа", "4 ч → 2 мин", "−97%"),
+              ("Конверсия", "2.1 → 8.4%", "+300%")]),
+            (GREEN, "Лендинг", "Стилист г. Екатеринбург",
+             "Клиенты узнавали через сарафан, сайта не было совсем.",
+             [("Заявок в мес.", "0 → 24", "с нуля"),
+              ("Стоимость лида", "— → 890 р.", "сразу"),
+              ("Окупился за", "18 дней", "ROI 600%")]),
+            (BLUE, "Сайт + Бот", "Покрасочный цех",
+             "Работали только по рекомендациям, онлайна не было.",
+             [("Новых клиентов", "+14/мес", "с нуля"),
+              ("Средний чек", "+42%", "доверие"),
+              ("Заявки за мес.", "+40%", "рост")]),
         ]
 
         for i, (c, tool, niche, problem, results) in enumerate(cases):
-            y = 52 + i * 72
-            self.white_card(14, y, 182, 66, r=5)
-            self.set_fill_color(*c)
-            try:
-                self.rounded_rect(14, y, 3.5, 66, 5, "F")
-            except Exception:
-                self.rect(14, y, 3.5, 66, "F")
+            y = 54 + i * 72
+            self.white_card(14, y, 182, 64, r=5)
+            self.rr(14, y, 3.5, 64, 5, c)
 
-            # Бейдж
             self.badge(20, y + 5, f"  {tool}  ", c, WHITE, 7.5)
 
             self.f(10, True, DARK)
-            self.set_xy(20, y + 16); self.cell(85, 6, niche)
+            self.set_xy(20, y + 16); self.cell(80, 6, niche)
             self.f(8, False, DGRAY)
             self.set_xy(20, y + 24)
-            self.multi_cell(74, 4.5, problem)
+            self.multi_cell(75, 4.5, problem)
 
-            # Вертикальный разделитель
-            self.vl(100, y + 6, y + 60, CARD_SH)
+            # Разделитель
+            self.set_draw_color(*CARD_SH)
+            self.set_line_width(0.3)
+            self.line(101, y + 6, 101, y + 58)
 
             # Результаты
-            for j, (label, val, vc, extra) in enumerate(results):
-                rx = 104 + j * 30
+            for j, (label, val, extra) in enumerate(results):
+                rx = 105 + j * 30
                 self.f(7, False, LGRAY)
                 self.set_xy(rx, y + 8); self.cell(28, 4, label, align="C")
-                self.f(10, True, vc)
+                self.f(10, True, c)
                 self.set_xy(rx, y + 14); self.cell(28, 7, val, align="C")
-                self.f(8, True, c)
+                self.f(8, True, GREEN)
                 self.set_xy(rx, y + 23); self.cell(28, 5, extra, align="C")
 
+        # Итог
+        self.rr(14, 272, 182, 16, 4, ORANGE_L)
+        self.f(9, True, ORANGE)
+        self.set_xy(20, 276)
+        self.cell(30, 5, "Итог:")
+        self.f(9, False, DARK)
+        self.set_xy(52, 276)
+        self.cell(138, 5, "Средняя окупаемость наших проектов — 1–2 месяца")
+
     # ─────────────────────────────────────────────────────────────────────────
-    # СТРАНИЦА 5: АЛГОРИТМ
+    # СТРАНИЦА 4: ПАКЕТЫ
     # ─────────────────────────────────────────────────────────────────────────
-    def p_algo(self):
+    def p_packages(self):
         self.page_bg()
-        self.section_label(4, "Алгоритм выбора")
+        self.section_label(3, "Пакеты и цены")
 
-        self.f(22, True, DARK)
+        self.f(21, True, DARK)
         self.set_xy(14, 28)
-        self.multi_cell(182, 10, "5 вопросов — и ответ станет очевидным", "L")
+        self.multi_cell(182, 10, "Выберите формат под вашу задачу", "L")
 
-        qs = [
-            (ORANGE, "Откуда приходят клиенты?",
-             "Таргет / контекст ->", GREEN, "Лендинг",
-             "Telegram / органика ->", ORANGE, "Бот"),
-            (GREEN, "Нужна автоматизация?",
-             "Да, без менеджера ->", ORANGE, "Бот",
-             "Нет, просто заявка ->", GREEN, "Лендинг"),
-            (BLUE, "Один оффер или каталог?",
-             "Один продукт / услуга ->", GREEN, "Лендинг",
-             "Много услуг / товаров ->", BLUE, "Сайт"),
-            (ORANGE, "Нужен повторный контакт?",
-             "Да, нужны рассылки ->", ORANGE, "Бот",
-             "Нет, ретаргет ->", GREEN, "Лендинг"),
-            (GREEN, "Какой бюджет и срок?",
-             "До 30 000 руб / срочно ->", ORANGE, "Бот или лендинг",
-             "Есть ресурс ->", BLUE, "Сайт"),
+        packages = [
+            (ORANGE, "БАЗОВЫЙ", "Лендинг / Простой бот",
+             "от 20 000 ₽", "3–7 дней",
+             [
+                 "Продающая структура под вашу нишу",
+                 "Форма заявки + уведомление в Telegram",
+                 "Адаптация под мобильные",
+                 "Инструкция по управлению",
+             ]),
+            (GREEN, "СТАНДАРТ", "Продающий сайт / Бот-воронка",
+             "от 35 000 ₽", "7–10 дней",
+             [
+                 "6–8 страниц с продающими текстами",
+                 "Полная воронка продаж под нишу",
+                 "Интеграция с CRM или таблицами",
+                 "Онлайн-запись или калькулятор",
+             ]),
+            (BLUE, "ПРЕМИУМ", "Сайт + Бот под ключ",
+             "от 70 000 ₽", "10–14 дней",
+             [
+                 "Уникальный дизайн под ваш бренд",
+                 "Бот-воронка + сайт как единая система",
+                 "Интеграция с любыми сервисами",
+                 "Продающие тексты под вашу нишу",
+             ]),
         ]
 
-        for i, (c, q, a1, c1, r1, a2, c2, r2) in enumerate(qs):
-            y = 52 + i * 44
-            self.white_card(14, y, 182, 38, r=4)
-            self.set_fill_color(*c)
-            try:
-                self.rounded_rect(14, y, 3.5, 38, 4, "F")
-            except Exception:
-                self.rect(14, y, 3.5, 38, "F")
+        for i, (c, name, subtitle, price, term, feats) in enumerate(packages):
+            x = 14 + i * 63
+            self.white_card(x, 54, 60, 206, r=5)
+            self.rr(x, 54, 60, 3, 5, c)
 
-            # Номер
-            self.f(16, True, ORANGE_L)
-            self.set_xy(16, y + 5); self.cell(12, 12, str(i + 1), align="C")
+            self.f(9, True, c)
+            self.set_xy(x + 3, 61); self.cell(54, 6, name, align="C")
 
-            self.f(10, True, DARK)
-            self.set_xy(32, y + 8); self.cell(158, 7, q)
+            self.f(7.5, False, DGRAY)
+            self.set_xy(x + 3, 69)
+            self.multi_cell(54, 4, subtitle, align="C")
 
-            # Варианты
-            self.icon_check(32, y + 21, 7)
-            self.f(8.5, False, DGRAY); self.set_xy(41, y + 20); self.cell(55, 6, a1)
-            self.f(8.5, True, c1);     self.set_xy(98, y + 20); self.cell(40, 6, r1)
+            # Цена
+            self.rr(x + 4, 82, 52, 20, 3, ORANGE_L)
+            self.f(14, True, ORANGE)
+            self.set_xy(x + 4, 84); self.cell(52, 9, price, align="C")
+            self.f(7, False, LGRAY)
+            self.set_xy(x + 4, 94); self.cell(52, 5, f"Срок: {term}", align="C")
 
-            self.set_fill_color(*RED)
-            self.ellipse(34, y + 30, 3.5, 3.5, "F")
-            self.f(8.5, False, DGRAY); self.set_xy(41, y + 28); self.cell(55, 6, a2)
-            self.f(8.5, True, c2);     self.set_xy(98, y + 28); self.cell(40, 6, r2)
+            # Фичи
+            for j, feat in enumerate(feats):
+                fy = 110 + j * 32
+                self.white_card(x + 4, fy, 52, 28, r=3)
+                self.icon_check(x + 7, fy + 9, 7)
+                self.f(7.5, False, DARK)
+                self.set_xy(x + 16, fy + 4)
+                self.multi_cell(37, 4.5, feat)
+
+            # Кнопка
+            self.rr(x + 4, 244, 52, 11, 3, c)
+            self.f(8, True, WHITE)
+            self.set_xy(x + 4, 246)
+            self.cell(52, 7, "Выбрать →", align="C")
+
+        # Плашка с условиями
+        self.rr(14, 268, 182, 22, 4, BAR_BG)
+        conditions = ["Предоплата 50% / остаток после сдачи", "Гарантия на 3 месяца", "Правки до результата"]
+        for i, cond in enumerate(conditions):
+            x = 20 + i * 62
+            self.dot(x, 276, 2, ORANGE)
+            self.f(8, False, DARK)
+            self.set_xy(x + 4, 272); self.cell(56, 10, cond)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # СТРАНИЦА 6: CTA
+    # СТРАНИЦА 5: ПРОЦЕСС
+    # ─────────────────────────────────────────────────────────────────────────
+    def p_process(self):
+        self.page_bg()
+        self.section_label(4, "Как мы работаем")
+
+        self.f(21, True, DARK)
+        self.set_xy(14, 28)
+        self.multi_cell(182, 10, "5 шагов от заявки до готового продукта", "L")
+
+        steps = [
+            (ORANGE, "Разбор задачи",
+             "Бесплатный созвон 20–30 минут. Разбираем вашу нишу, задачи и ожидания. "
+             "Вы получаете конкретный план и цену."),
+            (GREEN, "Бриф и проектирование",
+             "Заполняете короткую анкету. Мы делаем структуру сайта/бота и согласовываем "
+             "с вами до начала разработки."),
+            (BLUE, "Дизайн и разработка",
+             "Создаём дизайн, разрабатываем сайт или бота. Показываем промежуточные результаты — "
+             "вы всегда в курсе."),
+            (ORANGE, "Тестирование и правки",
+             "Проверяем всё на реальных устройствах. Вносим правки — "
+             "работаем до тех пор, пока вас всё не устроит."),
+            (GREEN, "Сдача и поддержка",
+             "Передаём все доступы, обучаем управлению. "
+             "3 месяца бесплатной поддержки после сдачи."),
+        ]
+
+        for i, (c, title, desc) in enumerate(steps):
+            y = 54 + i * 44
+            self.white_card(14, y, 182, 38, r=4)
+            self.rr(14, y, 3.5, 38, 4, c)
+
+            # Номер в круге
+            self.num_circle(32, y + 19, i + 1, c)
+
+            self.f(10, True, DARK)
+            self.set_xy(46, y + 8); self.cell(0, 7, title)
+            self.f(8.5, False, DGRAY)
+            self.set_xy(46, y + 17)
+            self.multi_cell(144, 5, desc)
+
+            # Стрелка между шагами
+            if i < 4:
+                self.set_draw_color(*CARD_SH)
+                self.set_line_width(0.5)
+                ax = 30
+                ay1 = y + 38
+                ay2 = y + 44
+                self.line(ax, ay1, ax, ay2)
+                self.line(ax - 2, ay2 - 2, ax, ay2)
+                self.line(ax + 2, ay2 - 2, ax, ay2)
+
+        # Нижний блок
+        self.rr(14, 278, 182, 12, 4, ORANGE_L)
+        self.f(9, True, ORANGE)
+        self.set_xy(20, 281)
+        self.cell(35, 5, "Важно:")
+        self.f(9, False, DARK)
+        self.set_xy(57, 281)
+        self.cell(133, 5, "Средний срок запуска — 7 дней. Принимаем 1–2 проекта в неделю.")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # СТРАНИЦА 6: ГАРАНТИИ + CTA
     # ─────────────────────────────────────────────────────────────────────────
     def p_cta(self):
         self.page_bg()
+        self.section_label(5, "Гарантии и следующий шаг")
 
-        # Большая белая карточка по центру
-        self.white_card(14, 20, 182, 140, r=6)
-        self.set_fill_color(*ORANGE)
-        try:
-            self.rounded_rect(14, 20, 182, 3, 6, "F")
-        except Exception:
-            self.rect(14, 20, 182, 3, "F")
+        # Заголовок
+        self.f(21, True, DARK)
+        self.set_xy(14, 28)
+        self.multi_cell(182, 10, "Работаем на результат — не на отчёты", "L")
 
-        self.f(7, True, ORANGE)
-        self.set_xy(14, 30); self.cell(182, 5, "СЛЕДУЮЩИЙ ШАГ", align="C")
+        # Гарантии — 3 карточки
+        guarantees = [
+            (ORANGE, "Гарантия\nсроков",
+             "Называем срок — соблюдаем. Каждый день просрочки — скидка 1%."),
+            (GREEN,  "Правки до\nрезультата",
+             "Вносим правки бесплатно до тех пор, пока вас всё устраивает."),
+            (BLUE,   "3 месяца\nподдержки",
+             "После сдачи — 3 месяца бесплатной технической поддержки."),
+        ]
+        for i, (c, title, desc) in enumerate(guarantees):
+            x = 14 + i * 63
+            self.white_card(x, 56, 59, 72, r=5)
+            self.rr(x, 56, 59, 3, 5, c)
+            self.dot(x + 29, 72, 10, ORANGE_L)
+            self.f(16, True, c)
+            self.set_xy(x, 66); self.cell(59, 11, "✓", align="C")
+            self.f(8.5, True, DARK)
+            self.set_xy(x + 4, 80)
+            self.multi_cell(51, 4.5, title, align="C")
+            self.f(7.5, False, DGRAY)
+            self.set_xy(x + 4, 94)
+            self.multi_cell(51, 4, desc, align="C")
 
-        self.f(26, True, DARK)
-        self.set_xy(14, 38)
-        self.multi_cell(182, 12, "Обсудим ваш проект?", "C")
+        # Отзыв / цитата
+        self.white_card(14, 140, 182, 36, r=5)
+        self.rr(14, 140, 3.5, 36, 5, ORANGE)
+        self.f(10, True, DARK)
+        self.set_xy(22, 146)
+        self.multi_cell(170, 6,
+            "«Сайт окупился за первый месяц — пришло 14 новых клиентов.\n"
+            "Рекомендую всем, кто хочет результат, а не просто красивую картинку.»")
+        self.f(8, False, LGRAY)
+        self.set_xy(22, 164)
+        self.cell(0, 5, "— Владелец покрасочного цеха GK Pokraska")
 
-        self.f(10, False, DGRAY)
-        self.set_xy(14, 68)
-        self.multi_cell(182, 6,
-            "Бесплатный 20-минутный разбор.\n"
-            "Покажу примеры — назову цену и срок.", "C")
+        # CTA блок
+        self.white_card(14, 188, 182, 60, r=6)
+        self.rr(14, 188, 182, 3, 6, ORANGE)
+
+        self.f(8, True, ORANGE)
+        self.set_xy(14, 197); self.cell(182, 5, "СЛЕДУЮЩИЙ ШАГ", align="C")
+
+        self.f(19, True, DARK)
+        self.set_xy(14, 204); self.cell(182, 12, "Обсудим ваш проект?", align="C")
+
+        self.f(9, False, DGRAY)
+        self.set_xy(14, 217)
+        self.multi_cell(182, 5.5,
+            "Бесплатный созвон 20 минут. Расскажете задачу — назову цену и срок.",
+            align="C")
 
         # Кнопка
-        self.set_fill_color(*ORANGE)
-        try:
-            self.rounded_rect(67, 90, 76, 13, 3, "F")
-        except Exception:
-            self.rect(67, 90, 76, 13, "F")
+        self.rr(67, 228, 76, 13, 3, ORANGE)
         self.f(10, True, WHITE)
-        self.set_xy(67, 92); self.cell(76, 9, "Записаться ->", align="C")
+        self.set_xy(67, 230); self.cell(76, 9, "Записаться →", align="C")
 
-        # Три обещания
+        # Три обещания под кнопкой
         promises = [(GREEN, "Бесплатно"), (ORANGE, "Без давления"), (BLUE, "Конкретный план")]
         for i, (c, t) in enumerate(promises):
-            x = 20 + i * 60
-            self.dot(x + 24, 118, 3, c)
+            x = 28 + i * 56
+            self.dot(x + 20, 246, 2.5, c)
             self.f(8.5, True, c)
-            self.set_xy(x, 123); self.cell(48, 5, t, align="C")
-
-        # Четыре карточки доверия
-        proof = [(ORANGE, "50+", "проектов"), (GREEN, "7+", "лет опыта"),
-                 (BLUE, "24ч", "время ответа"), (ORANGE, "100%", "гарантия")]
-        for i, (c, n, l) in enumerate(proof):
-            x = 14 + i * 47
-            self.white_card(x, 148, 43, 38, r=4)
-            self.set_fill_color(*c)
-            try:
-                self.rounded_rect(x, 148, 43, 2.5, 4, "F")
-            except Exception:
-                self.rect(x, 148, 43, 2.5, "F")
-            self.f(18, True, c)
-            self.set_xy(x, 152); self.cell(43, 12, n, align="C")
-            self.f(7.5, False, LGRAY)
-            self.set_xy(x, 166); self.cell(43, 5, l, align="C")
-
-        # Услуги
-        self.f(11, True, DARK)
-        self.set_xy(14, 198); self.cell(0, 7, "Что делаю:")
-        skills = [
-            (ORANGE, "Telegram-боты под ключ — воронки, рассылки, запись на услугу"),
-            (GREEN,  "Лендинги с высокой конверсией — от 5 дней"),
-            (BLUE,   "Многостраничные сайты — SEO, каталог, портфолио"),
-        ]
-        for i, (c, t) in enumerate(skills):
-            y = 208 + i * 16
-            self.white_card(14, y, 182, 13, r=3)
-            self.set_fill_color(*c)
-            self.rect(14, y, 2.5, 13, "F")
-            self.icon_check(18, y + 2.5, 8)
-            self.f(9, False, DARK)
-            self.set_xy(28, y + 2.5); self.cell(164, 8, t)
+            self.set_xy(x, 250); self.cell(44, 5, t, align="C")
 
         # Нижняя плашка
-        self.set_fill_color(*BAR_BG)
-        try:
-            self.rounded_rect(14, 258, 182, 30, 5, "F")
-        except Exception:
-            self.rect(14, 258, 182, 30, "F")
+        self.rr(14, 262, 182, 28, 5, BAR_BG)
         self.f(8, False, LGRAY)
-        self.set_xy(14, 268)
+        self.set_xy(14, 272)
         self.cell(182, 6,
-            "Telegram-боты  |  Лендинги  |  Сайты  |  Разработка под ключ",
+            "Telegram-боты  |  Лендинги  |  Многостраничные сайты  |  Под ключ",
             align="C")
+        self.f(7, False, LGRAY)
+        self.set_xy(14, 279)
+        self.cell(182, 5, "Гарантия  |  Оплата 50/50  |  Запуск от 3 дней", align="C")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -682,10 +599,10 @@ def make():
     pdf.set_auto_page_break(False)
 
     pdf.add_page(); pdf.cover()
-    pdf.add_page(); pdf.p_problem()
-    pdf.add_page(); pdf.p_compare()
+    pdf.add_page(); pdf.p_pain()
     pdf.add_page(); pdf.p_cases()
-    pdf.add_page(); pdf.p_algo()
+    pdf.add_page(); pdf.p_packages()
+    pdf.add_page(); pdf.p_process()
     pdf.add_page(); pdf.p_cta()
 
     pdf.output(OUT)
