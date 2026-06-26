@@ -32,6 +32,13 @@ CREATE TABLE IF NOT EXISTS followups (
     send_at DATETIME NOT NULL,
     sent    INTEGER DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS referrals (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    referrer_id INTEGER NOT NULL,
+    referred_id INTEGER NOT NULL,
+    completed   INTEGER DEFAULT 0,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 FOLLOWUP_STEPS = [1, 24, 72]
@@ -170,3 +177,65 @@ async def get_stats():
         "conversion": round(completed/total*100,1) if total else 0,
         "needs": needs,
     }
+
+
+# ── Реферальная система ───────────────────────────────────────────────────────
+
+async def add_referral(referrer_id: int, referred_id: int) -> None:
+    """Записываем что referred_id пришёл по ссылке referrer_id."""
+    async with aiosqlite.connect(config.DB_PATH) as db:
+        # Не добавляем дубли
+        cur = await db.execute(
+            "SELECT id FROM referrals WHERE referred_id=?", (referred_id,)
+        )
+        if await cur.fetchone():
+            return
+        await db.execute(
+            "INSERT INTO referrals (referrer_id, referred_id) VALUES (?,?)",
+            (referrer_id, referred_id),
+        )
+        await db.commit()
+
+
+async def complete_referral(referred_id: int) -> int | None:
+    """Помечаем реферала как завершившего воронку. Возвращает referrer_id."""
+    async with aiosqlite.connect(config.DB_PATH) as db:
+        cur = await db.execute(
+            "SELECT id, referrer_id FROM referrals WHERE referred_id=? AND completed=0",
+            (referred_id,),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return None
+        await db.execute(
+            "UPDATE referrals SET completed=1 WHERE id=?", (row[0],)
+        )
+        await db.commit()
+        return row[1]
+
+
+async def get_referral_stats(user_id: int) -> dict:
+    """Статистика рефералов пользователя."""
+    async with aiosqlite.connect(config.DB_PATH) as db:
+        cur = await db.execute(
+            "SELECT COUNT(*) FROM referrals WHERE referrer_id=?", (user_id,)
+        )
+        total = (await cur.fetchone())[0]
+
+        cur = await db.execute(
+            "SELECT COUNT(*) FROM referrals WHERE referrer_id=? AND completed=1",
+            (user_id,),
+        )
+        completed = (await cur.fetchone())[0]
+
+    return {"total": total, "completed": completed}
+
+
+async def get_referrer(referred_id: int) -> int | None:
+    """Возвращает referrer_id если пользователь пришёл по реф-ссылке."""
+    async with aiosqlite.connect(config.DB_PATH) as db:
+        cur = await db.execute(
+            "SELECT referrer_id FROM referrals WHERE referred_id=?", (referred_id,)
+        )
+        row = await cur.fetchone()
+        return row[0] if row else None

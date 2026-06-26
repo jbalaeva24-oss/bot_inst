@@ -10,6 +10,7 @@ import config
 from src.db import init_db
 from src.funnel import router
 from src.booking import router as booking_router
+from src.referral import router as referral_router
 from src.followup import followup_loop
 
 
@@ -32,8 +33,14 @@ async def main() -> None:
 
     bot = Bot(token=config.BOT_TOKEN)
     dp = Dispatcher(storage=MemoryStorage())
+
+    # Обновляем username бота в реферальном модуле
+    import src.referral as _ref
+    me = await bot.get_me()
+    _ref.BOT_USERNAME = me.username
     dp.include_router(router)
     dp.include_router(booking_router)
+    dp.include_router(referral_router)
 
     asyncio.create_task(followup_loop(bot))
 

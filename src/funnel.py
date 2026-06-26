@@ -19,8 +19,9 @@ from src.states import F as Funnel
 from src.keyboards import kb, url_kb, remove_keyboard
 from src.booking import start_booking
 from src.db import save_lead, upsert_user, schedule_followups, cancel_followup, \
-    get_stats, get_all_user_ids, export_leads_xlsx
+    get_stats, get_all_user_ids, export_leads_xlsx, complete_referral
 from src.crm import push_to_crm
+from src.referral import parse_ref, notify_referrer, notify_referral_complete, ref_link
 
 log = logging.getLogger(__name__)
 router = Router()
@@ -80,6 +81,13 @@ async def cmd_start(message: Message, state: FSMContext):
     await cancel_followup(user.id)
     await schedule_followups(user.id)
 
+    # Обрабатываем реф-ссылку
+    args = message.text.split(maxsplit=1)
+    payload = args[1] if len(args) > 1 else ""
+    referrer_id = await parse_ref(payload, user.id)
+    if referrer_id:
+        await notify_referrer(message.bot, referrer_id, user.full_name or user.username or "Новый пользователь")
+
     # Баннер + текст одним сообщением
     banner_path = config.BASE_DIR / "assets" / "banner.jpg"
     if not banner_path.exists():
@@ -87,7 +95,7 @@ async def cmd_start(message: Message, state: FSMContext):
 
     greeting = (
         "Привет! 👋\n\n"
-        "Я делаю сайты и Telegram-боты под ключ.\n"
+        "Я делаю Telegram-боты, лендинги и сайты под ключ.\n"
         "Помогаю бизнесу получать больше клиентов и заявок.\n\n"
         "Чем могу помочь?"
     )
@@ -209,6 +217,8 @@ async def demo_sites(cb: CallbackQuery, state: FSMContext):
     photo = _site_photo(idx)
     if photo:
         await cb.message.answer_photo(photo, caption=f"<b>{name}</b>\n→ {caption}", reply_markup=_site_kb(idx), parse_mode="HTML")
+    else:
+        await cb.message.answer(f"🌐 <b>{name}</b>\n→ {caption}", reply_markup=_site_kb(idx), parse_mode="HTML")
     await state.set_state(Funnel.demo_site_reaction)
 
 
@@ -224,6 +234,8 @@ async def site_nav(cb: CallbackQuery, state: FSMContext):
             InputMediaPhoto(media=photo, caption=f"<b>{name}</b>\n→ {caption}", parse_mode="HTML"),
             reply_markup=_site_kb(idx)
         )
+    else:
+        await cb.message.edit_text(f"🌐 <b>{name}</b>\n→ {caption}", reply_markup=_site_kb(idx), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "noop")
@@ -445,10 +457,12 @@ async def q_timeline(cb: CallbackQuery, state: FSMContext):
         answers={k: str(v) for k, v in data.items()},
         utm={}, completed=False,
     )
+    tg_link = f"@{user.username}" if user.username else f"tg://user?id={user.id}"
     await notify_admins(cb.bot, {
-        "Пользователь": f"{user.full_name} @{user.username}",
+        "Пользователь": f"{user.full_name} {tg_link}",
         "Продукт": product, "Бюджет": data.get("budget"),
         "Заявки/мес": data.get("leads"), "Срок": timeline,
+        "Написать": f"tg://user?id={user.id}",
     })
     await push_to_crm(lead_id, user.id, user.username, user.full_name,
                       data, {})
@@ -553,6 +567,12 @@ async def final(cb: CallbackQuery, state: FSMContext):
             "Буду рад помочь с вашим проектом 🙌"
         )
         await send_lead_magnet(cb.message)
+
+    # Уведомляем реферера
+    referrer_id = await complete_referral(cb.from_user.id)
+    if referrer_id:
+        await notify_referral_complete(cb.bot, referrer_id,
+            cb.from_user.full_name or cb.from_user.username or 'Пользователь')
     await state.clear()
 
 
