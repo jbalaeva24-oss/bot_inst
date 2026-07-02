@@ -112,13 +112,15 @@ async def booking_contact_received(message: Message, state: FSMContext) -> None:
         budget_labels = {"low": "до 30 000 ₽", "mid": "30–60 000 ₽", "high": "60 000+ ₽", "premium": "100 000+ ₽", "discuss": "обсудим"}
         tg_link = f"@{user.username}" if user.username else f"<a href='tg://user?id={user.id}'>{user.full_name}</a>"
         admin_text = (
-            "🔔 <b>Новая заявка на созвон!</b>\n\n"
-            f"👤 {user.full_name} {tg_link}\n"
+            "🔔 <b>НОВЫЙ ЛИД — заявка на созвон!</b>\n\n"
+            f"👤 <b>{user.full_name}</b> {tg_link}\n"
             f"📱 Контакт: <b>{contact}</b>\n"
-            f"🕐 Время: <b>{time_label}</b>\n\n"
-            f"📋 Интерес: {product_labels.get(data.get('product',''), '—')}\n"
-            f"💰 Бюджет: {budget_labels.get(data.get('budget',''), '—')}\n\n"
-            "👆 Напишите первым!"
+            f"🕐 Время созвона: <b>{time_label}</b>\n\n"
+            f"📋 Интерес: <b>{product_labels.get(data.get('product', ''), '—')}</b>\n"
+            f"💰 Бюджет: <b>{budget_labels.get(data.get('budget', ''), '—')}</b>\n"
+            f"📆 Срок запуска: <b>{data.get('timeline', '—')}</b>\n"
+            f"📊 Заявок/мес: <b>{data.get('leads', '—')}</b>\n\n"
+            "✍️ Напиши первым!"
         )
         for aid in config.ADMIN_IDS:
             try:

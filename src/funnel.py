@@ -457,13 +457,6 @@ async def q_timeline(cb: CallbackQuery, state: FSMContext):
         answers={k: str(v) for k, v in data.items()},
         utm={}, completed=False,
     )
-    tg_link = f"@{user.username}" if user.username else f"tg://user?id={user.id}"
-    await notify_admins(cb.bot, {
-        "Пользователь": f"{user.full_name} {tg_link}",
-        "Продукт": product, "Бюджет": data.get("budget"),
-        "Заявки/мес": data.get("leads"), "Срок": timeline,
-        "Написать": f"tg://user?id={user.id}",
-    })
     await push_to_crm(lead_id, user.id, user.username, user.full_name,
                       data, {})
 
