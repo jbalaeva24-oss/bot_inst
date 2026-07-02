@@ -85,16 +85,6 @@ async def booking_contact_received(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     user = message.from_user
     contact = message.text.strip()
-
-    # Валидация: должен быть @username, номер телефона или хотя бы 2 слова (имя + контакт)
-    if len(contact) < 5 or (not contact.startswith("@") and not any(c.isdigit() for c in contact) and len(contact.split()) < 2):
-        await message.answer(
-            "Пожалуйста, оставьте имя и @username или номер телефона.\n"
-            "Например: <b>Анна @anna_ivanova</b> или <b>Анна +79991234567</b>",
-            parse_mode="HTML",
-        )
-        return
-
     time_label = data.get("booking_time", "не указано")
     await cancel_followup(user.id)
     await mark_lead_completed(user.id)
